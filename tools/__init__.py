@@ -1,3 +1,5 @@
-from .a_correlate import a_correlate
-from .echelle import echelle
-from .smooth import SmoothWrapper
+from .plot import *
+from .series import *
+
+__all__ = plot.__all__
+__all__.extend(series.__all__)

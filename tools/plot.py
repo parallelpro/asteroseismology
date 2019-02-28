@@ -4,6 +4,8 @@
 
 import numpy as np
 
+__all__ = ["echelle"]
+
 def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, echelletype: str="single", offset: float=0.0):
 	'''
 	Generate a z-map for echelle plotting.
@@ -22,7 +24,7 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	y: 1-d array.
 	z: 2-d array.
 
-	Example call:
+	Exemplary call:
 
 	echx, echy, echz = echelle(tfreq,tpowers_o,dnu,numax-9.0*dnu,numax+9.0*dnu,type="single",offset=offset)
 	levels = np.linspace(np.min(echz),np.max(echz),500)

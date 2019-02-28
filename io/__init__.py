@@ -1,1 +1,3 @@
-from .read_yu_power_spectra import read_yu_power_spectra
+from .read_file import *
+
+__all__ = read_file.__all__
