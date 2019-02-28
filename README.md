@@ -1,4 +1,4 @@
-This is a repository of all the codes I have written for asteroseismology project. Using git is better for the purpose of version control. So I started using them from now! -- 05/12/2018
+This is a repository of all the codes I have written for asteroseismology projects. Using git is better for the purpose of version control. So I started using them from now! -- 05/12/2018
 
 # Introduction
 err
