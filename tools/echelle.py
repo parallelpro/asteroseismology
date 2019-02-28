@@ -22,6 +22,20 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	y: 1-d array.
 	z: 2-d array.
 
+	Example call:
+
+	echx, echy, echz = echelle(tfreq,tpowers_o,dnu,numax-9.0*dnu,numax+9.0*dnu,type="single",offset=offset)
+	levels = np.linspace(np.min(echz),np.max(echz),500)
+	ax1.contourf(echx,echy,echz,cmap="gray_r",levels=levels)
+	ax1.axis([np.min(echx),np.max(echx),np.min(echy),np.max(echy)])
+	if offset > 0.0:
+		ax1.set_xlabel("(Frequency - "+str("{0:.2f}").format(offset)+ ") mod "+str("{0:.2f}").format(dnu) + " ($\mu$Hz)")
+	if offset < 0.0:
+		ax1.set_xlabel("(Frequency + "+str("{0:.2f}").format(np.abs(offset))+ ") mod "+str("{0:.2f}").format(dnu) + " ($\mu$Hz)")
+	if offset == 0.0:
+		ax1.set_xlabel("Frequency mod "+str("{0:.2f}").format(dnu) + " ($\mu$Hz)")
+
+
 	'''
 
 	if not echelletype in ["single", "replicated"]:
