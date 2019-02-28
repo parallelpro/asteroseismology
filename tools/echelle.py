@@ -4,7 +4,7 @@
 
 import numpy as np
 
-def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, echelletype: str="single"):
+def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, echelletype: str="single", offset: float=0.0):
 	'''
 	Generate a z-map for echelle plotting.
 
@@ -14,7 +14,8 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	period: delta_nu.
 	lowc: lower boundary frequency.
 	highc: higher boundary frequency.
-	type: single or replicated
+	type: single or replicated.
+	offset: horizontal shift in same unit of x.
 
 	Output:
 	x: 1-d array.
@@ -29,6 +30,10 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	if len(x) != len(y): 
 		raise ValueError("x and y must have equal size.")	
 
+	lowc = lowc - offset
+	highc = highc - offset
+	x = x - offset
+
 	if lowc <= 0.0:
 		lowc = 0.0
 	else:
@@ -40,7 +45,7 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	trimy = y[index]
 
 	# first interpolate
-	samplinginterval = np.median(trimx[1:-1] - trimx[0:-2])
+	samplinginterval = np.median(trimx[1:-1] - trimx[0:-2]) * 0.1
 	xp = np.arange(lowc,highc+period,samplinginterval)
 	yp = np.interp(xp, x, y)
 
@@ -53,7 +58,7 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	arr2 = np.array([arr,arr])
 	yn = np.reshape(arr2,len(arr)*2,order="F")
 	yn = np.insert(yn,0,0.0)
-	yn = np.append(yn,n_stack*period) + lowc
+	yn = np.append(yn,n_stack*period) + lowc + offset
 
 	if type == "single":
 		xn = np.arange(1,n_element+1)/n_element * period
