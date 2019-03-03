@@ -26,7 +26,7 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 
 	Exemplary call:
 
-	echx, echy, echz = echelle(tfreq,tpowers_o,dnu,numax-9.0*dnu,numax+9.0*dnu,type="single",offset=offset)
+	echx, echy, echz = echelle(tfreq,tpowers_o,dnu,numax-9.0*dnu,numax+9.0*dnu,echelletype="single",offset=offset)
 	levels = np.linspace(np.min(echz),np.max(echz),500)
 	ax1.contourf(echx,echy,echz,cmap="gray_r",levels=levels)
 	ax1.axis([np.min(echx),np.max(echx),np.min(echy),np.max(echy)])
@@ -76,13 +76,13 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	yn = np.insert(yn,0,0.0)
 	yn = np.append(yn,n_stack*period) + lowc + offset
 
-	if type == "single":
+	if echelletype == "single":
 		xn = np.arange(1,n_element+1)/n_element * period
 		z = np.zeros([n_stack*morerow,n_element])
 		for i in range(n_stack):
 			for j in range(i*morerow,(i+1)*morerow):
 				z[j,:] = yp[n_element*(i):n_element*(i+1)]
-	if type == "double":
+	if echelletype == "replicated":
 		xn = np.arange(1,2*n_element+1)/n_element * period
 		z = np.zeros([n_stack*morerow,2*n_element])
 		for i in range(n_stack):

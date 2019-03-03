@@ -3,6 +3,11 @@ This is a repository of all the codes I have written for asteroseismology projec
 # Introduction
 err
 
+# Package dependencies
+`numpy`
+`scipy`
+`matplotlib`
+
 # Installation
 1. Git clone to your directory.
 2. To import the package in your code, try with
