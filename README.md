@@ -7,6 +7,7 @@ err
 `numpy`
 `scipy`
 `matplotlib`
+`emcee` while using modefit.py
 
 # Installation
 1. Git clone to your directory.
