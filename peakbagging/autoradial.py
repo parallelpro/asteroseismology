@@ -90,10 +90,9 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	eps_predict = 10.0**(0.32215*np.log(dnu) - 0.51461*np.log(teff) + 3.83118) # fit from White+2011
 	if eps_predict > 1: eps_predict += -1.0
 	if eps_predict < 0: eps_predict += 1.0
-	prob_eps = gaussian(freqc, eps_predict*dnu, 0.3*dnu, 1.0)
-	prob_eps += gaussian(freqc, (eps_predict+1)*dnu, 0.3*dnu, 1.0)
-	prob_eps += gaussian(freqc, (eps_predict+2)*dnu, 0.3*dnu, 1.0)
-	prob_eps += gaussian(freqc, (eps_predict-1)*dnu, 0.3*dnu, 1.0)
+	prob_eps = np.zeros(len(freqc))
+	for i in range(-3,4):
+		prob_eps += gaussian(freqc, (eps_predict+i)*dnu, 0.3*dnu, 1.0)
 	prob_eps /= prob_eps.max()
 
 	powerc_enhance = powerc * prob_eps
@@ -107,11 +106,14 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	ytemplate += lorentzian(xtemplate, xinit-dnu02, width, 0.6)
 	ytemplate += lorentzian(xtemplate, xinit-dnu02+dnu, width, 0.6)
 	ytemplate /= ytemplate.max()
-	lag, rho = c_correlate(freqc, powerc, ytemplate)
+	if ifeps:
+		lag, rho = c_correlate(freqc, powerc_enhance, ytemplate)
+	else:
+		lag, rho = c_correlate(freqc, powerc, ytemplate)
 
 	# find the highest point in cross-correlation diagram and shift its location
 	index_hp = np.where(rho == np.max(rho))[0][0]
-	eps_cross = lag[index_hp]/dnu
+	eps_cross = xinit/dnu-lag[index_hp]/dnu
 	if eps_cross > 1: eps_cross += -1.0
 	if eps_cross < 0: eps_cross += 1.0
 	if eps_cross <= 0.2:
@@ -124,15 +126,17 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	freqc[freqc > 2.0*dnu] += -dnu
 	freqc[freqc < 0.0] += dnu
 
+	index = np.argsort(freqc)
+	freqc, powerc, xtemplate, ytemplate, prob_eps = freqc[index], powerc[index], xtemplate[index], ytemplate[index], prob_eps[index]
+
 
 	# slice power spectrum into blocks
-	off = offset if offset >= 0.0 else offset+dnu
-	n_low, n_high = int((freq.min()-off)/dnu), int((freq.max()-off)/dnu)
+	n_low, n_high = int((freq.min()-offset)/dnu), int((freq.max()-offset)/dnu)
 	n_blocks = np.arange(n_low, n_high+1, 1)
 	peaks = []
 	for i, n_block in enumerate(n_blocks):
-		freq_low, freq_high = off+n_block*dnu, off+(n_block+1)*dnu
-		radial_freq_low, radial_freq_high = freq_low-off+eps_cross*dnu-0.6*dnu02, freq_low-off+eps_cross*dnu+0.6*dnu02
+		freq_low, freq_high = offset+n_block*dnu, offset+(n_block+1)*dnu
+		radial_freq_low, radial_freq_high = freq_low-offset+eps_cross*dnu-0.6*dnu02, freq_low-offset+eps_cross*dnu+1.0*dnu02
 		#print(freq_low, freq_high, radial_freq_low, radial_freq_high, off, dnu02)
 		index_norder = np.all(np.array([freq>=freq_low, freq<=freq_high]), axis=0)
 		index_radial = np.all(np.array([freq>=radial_freq_low, freq<=radial_freq_high]), axis=0)
@@ -165,8 +169,10 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	ax1.contourf(echx, echy, echz, cmap="gray_r", levels=levels)
 	ax1.axis([np.min(echx), np.max(echx), np.min(echy), np.max(echy)])
 	ax1.axvline(dnu, color="C0")
-	ax1.axvline(eps_cross*dnu-offset, linestyle="--", color="C1")
-	ax1.axvline(eps_cross*dnu-offset+dnu, linestyle="--", color="C1")
+	ax1.axvline(eps_cross*dnu-offset-0.6*dnu02, linestyle="--", color="C1")
+	ax1.axvline(eps_cross*dnu-offset+1.0*dnu02, linestyle="--", color="C1")
+	ax1.axvline(eps_cross*dnu-offset+dnu-0.6*dnu02, linestyle="--", color="C1")
+	ax1.axvline(eps_cross*dnu-offset+dnu+1.0*dnu02, linestyle="--", color="C1")
 	ax1.set_ylabel("Frequency [muHz]")
 
 	l0_freq = np.array(peaks) - offset
