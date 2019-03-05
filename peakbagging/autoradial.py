@@ -127,7 +127,8 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	freqc[freqc < 0.0] += dnu
 
 	index = np.argsort(freqc)
-	freqc, powerc, xtemplate, ytemplate, prob_eps = freqc[index], powerc[index], xtemplate[index], ytemplate[index], prob_eps[index]
+	freqc, powerc, xtemplate = freqc[index], powerc[index], xtemplate[index],
+	ytemplate, prob_eps, powerc_enhance = ytemplate[index], prob_eps[index], powerc_enhance[index]
 
 
 	# slice power spectrum into blocks
