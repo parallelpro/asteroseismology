@@ -12,8 +12,8 @@ import corner
 
 __all__ = ["modefitWrapper"]
 
-def ResponseFunction(freq, nyquist_freq):
-	sincfunctionarg = (np.pi/2.0)*freq/nyquist_freq
+def ResponseFunction(freq, fnyq):
+	sincfunctionarg = (np.pi/2.0)*freq/fnyq
 	responsefunction = (np.sin(sincfunctionarg)/sincfunctionarg)**2.0
 	return responsefunction
 
@@ -188,21 +188,26 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			return -np.inf
 
 	def lnlikelihood(theta):
-		model = np.zeros(len(freq))
-		for j in range(0, n_mode_l0):
-			model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
-							theta[3*j+2], inclination], fnyq, 0)
-		for j in range(0, n_mode - n_mode_l0):
-			model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
-							theta[3*n_mode_l0+4*j+2], theta[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-		model += 1.0
-		return -np.sum(np.log(model) + power/model)
+		lp = lnprior(theta)
+		if not np.isfinite(lp):
+			return -np.inf
+		else:
+			model = np.zeros(len(freq))
+			for j in range(0, n_mode_l0):
+				model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
+								theta[3*j+2], inclination], fnyq, 0)
+			for j in range(0, n_mode - n_mode_l0):
+				model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
+								theta[3*n_mode_l0+4*j+2], theta[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+			model += 1.0
+			return -np.sum(np.log(model) + power/model)
 
 	def lnprob(theta):
 		lp = lnprior(theta)
 		if not np.isfinite(lp):
 			return -np.inf
-		return lp + lnlikelihood(theta)
+		else:
+			return lp + lnlikelihood(theta)
 
 	
 	# maximum likelihood estimation'
@@ -226,21 +231,38 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	#ascii.write(Table([para_best]), filepath+"guess.txt", format="no_header", delimiter=",", overwrite=True)
 
 	
-	# run mcmc with ensemble sampler
+	# run mcmc with pt sampler
 	ndim, nwalkers, ntemps = n_mode_l0 * 3 + (n_mode - n_mode_l0 ) * 4, 100, 20
-	pos = [[para_best + 1.0*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
+	print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
+	pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 	sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood, lnprior, threads=1)
 
-	nsteps, width = 2000, 30
-	for j, result in enumerate(sampler.sample(pos, iterations=nsteps, thin=10)):
-	    n = int((width+1) * float(j) / nsteps)
-	    sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+
+	# burn-in
+	nburn, width = 1000, 30
+	print("start burning in. nburn:", nburn)
+	for j, result in enumerate(sampler.sample(pos0, iterations=nburn, thin=10)):
+		n = int((width+1) * float(j) / nburn)
+		sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
 	sys.stdout.write("\n")
+	pos, lnpost, lnlike = result
+	sampler.reset()
+
+	# actual iteration
+	nsteps, width = 2000, 30 # 10000, 30
+	print("start interating. nsteps:", nsteps)
+	for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost, lnlike0=lnlike, thin=10)):
+		#p, lnpost, lnlike = result
+		n = int((width+1) * float(j) / nsteps)
+		sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+	sys.stdout.write("\n")
+
 
 
 	# modify samples
 	# np.save(filepath+"sampler.npy", sampler.chain)
-	samples = sampler.chain[0,:,100:,:].reshape((-1,ndim))
+	#samples = sampler.chain[0,:,100:,:].reshape((-1,ndim))
+	samples = sampler.chain[0,:,:,:].reshape((-1,ndim))
 
 	# plot triangle
 	tp = ["amp", "lw", "fc"]
