@@ -5,7 +5,7 @@
 import numpy as np
 from asteroseismology.tools.series import smoothWrapper, lorentzian, gaussian, c_correlate
 from asteroseismology.tools.plot import echelle
-from asteroseismology.peakbagging.modefit import modefitWrapper
+from asteroseismology.peakbagging.modefit import modefitWrapper, h1testWrapper
 from scipy.signal import find_peaks
 
 import matplotlib as mpl
@@ -245,13 +245,13 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 
 	# read in table and cluster in group
 	table = np.loadtxt(frequencyGuessFile, delimiter=",")
+	index_ifpkbg = table[:,1] == 1
+	table = table[index_ifpkbg]
 	group_all = np.unique(table[:,0])
 	ngroups = len(group_all)
 
 	inclination, fnyq = 0.0, 283.2
 
-	### need to use parallel-tempering ensemble sampler
-	### to calculate bayesian evidence
 	for i in range(1):#range(ngroups):
 		group = group_all[i]
 		tindex = table[:,0] == group
@@ -259,7 +259,10 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 		mode_freq, mode_l = ttable[:,2], np.zeros(len(ttable), dtype=int)
 		tfilepath = filepath + "{:0.0f}".format(group) + "/"
 		if not os.path.exists(tfilepath): os.mkdir(tfilepath)
-		modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
 
+		# be careful! this program designs to fit one radial mode at a time, so each group
+		# should only contain one mode.
+		modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
+		h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
 
 	return

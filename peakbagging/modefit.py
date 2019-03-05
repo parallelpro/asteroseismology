@@ -3,14 +3,12 @@
 
 
 import numpy as np
-import emcee
 import sys
-from astropy.io import ascii
-from astropy.table import Table
 import matplotlib.pyplot as plt
+import emcee
 import corner
 
-__all__ = ["modefitWrapper"]
+__all__ = ["modefitWrapper", "h1testWrapper"]
 
 def ResponseFunction(freq, fnyq):
 	sincfunctionarg = (np.pi/2.0)*freq/fnyq
@@ -132,9 +130,11 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	filepath: path to store output files
 
 	Output:
+	Data: acceptance fraction, bayesian evidence, 
+		parameter estimation result, parameter initial guess.
+	Plots: fitting results, posterior distribution, traces.
 
 	'''
-
 
 	# check
 
@@ -188,55 +188,33 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			return -np.inf
 
 	def lnlikelihood(theta):
-		lp = lnprior(theta)
-		if not np.isfinite(lp):
-			return -np.inf
-		else:
-			model = np.zeros(len(freq))
-			for j in range(0, n_mode_l0):
-				model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
-								theta[3*j+2], inclination], fnyq, 0)
-			for j in range(0, n_mode - n_mode_l0):
-				model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
-								theta[3*n_mode_l0+4*j+2], theta[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-			model += 1.0
-			return -np.sum(np.log(model) + power/model)
+		model = np.zeros(len(freq))
+		for j in range(0, n_mode_l0):
+			model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
+							theta[3*j+2], inclination], fnyq, 0)
+		for j in range(0, n_mode - n_mode_l0):
+			model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
+							theta[3*n_mode_l0+4*j+2], theta[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+		model += 1.0
+		return -np.sum(np.log(model) + power/model)
 
+	'''
 	def lnprob(theta):
 		lp = lnprior(theta)
 		if not np.isfinite(lp):
 			return -np.inf
 		else:
 			return lp + lnlikelihood(theta)
-
-	
-	# maximum likelihood estimation'
-	# nll = lambda *args: -lnlikelihood(*args)
-	# result = op.minimize(nll, para_guess)
-	# para_best = result["x"]
-
-	# # if one of the parameter is out of range, use the guessed one
-	# for j in range(len(para_best)):
-	# 	if not flatPriorGuess_split[j][0] <= para_best[j] <= flatPriorGuess_split[j][1]:
-	# 		para_best[j] = para_guess[j]
-
-	##########################################
-	#para_best = np.array([22.0,0.547,597.325,
-	#			14.0,0.62699,0.0643,593.818])#,
-				#1.26, 0.23, 0.1, 604.00])
-	##########################################
-
+	'''
+	# write guessed parameters
 	para_best = para_guess
 	np.savetxt(filepath+"guess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
-	#ascii.write(Table([para_best]), filepath+"guess.txt", format="no_header", delimiter=",", overwrite=True)
 
-	
 	# run mcmc with pt sampler
 	ndim, nwalkers, ntemps = n_mode_l0 * 3 + (n_mode - n_mode_l0 ) * 4, 100, 20
 	print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
 	pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 	sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood, lnprior, threads=1)
-
 
 	# burn-in
 	nburn, width = 1000, 30
@@ -257,30 +235,25 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
 	sys.stdout.write("\n")
 
-
-
 	# modify samples
-	# np.save(filepath+"sampler.npy", sampler.chain)
-	#samples = sampler.chain[0,:,100:,:].reshape((-1,ndim))
 	samples = sampler.chain[0,:,:,:].reshape((-1,ndim))
 
-	# plot triangle
+	# plot triangle and save
 	tp = ["amp", "lw", "fc"]
 	para1 = [tp[k]+str(j) for j in range(n_mode_l0) for k in range(3)]
 	tp = ["amp", "lw", "fs", "fc"]
 	para2 = [tp[k]+str(j) for j in range(n_mode_l0, n_mode) for k in range(4)]
 	para = para1 + para2
-
 	fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_best)
 	fig.savefig(filepath+"triangle.png")
 	plt.close()
 
+	# save estimation result
 	result = np.array(list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
 		zip(*np.percentile(samples, [16, 50, 84],axis=0)))))
 	np.savetxt(filepath+"summary.txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
-	#ascii.write(Table(result), filepath+"summary.txt", format="csv", overwrite=True)
 
-	# plot mle result
+	# plot fitting result and save
 	para_plot = result[:,0]
 	power_fit = np.zeros(len(freq))
 	for j in range(0, n_mode_l0):
@@ -290,12 +263,12 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*n_mode_l0+4*j], para_plot[3*n_mode_l0+4*j+1], 
 						para_plot[3*n_mode_l0+4*j+2], para_plot[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
 	power_fit += 1.0
-	fig = plt.figure(figsize=(10,7))
+	fig = plt.figure(figsize=(6,5))
 	ax = fig.add_subplot(1,1,1)
 	ax.plot(freq, power, color="lightgray", label="power")
 	ax.plot(freq, powers, color="black", label="smooth")
-	# ax.plot(freq, power_bg, color='black', linestyle='--', label='bg')
 	ax.plot(freq, power_fit, color="orange", label="fit")
+	ax.legend()
 	a, b = np.min(mode_freq) - 8.0, np.max(mode_freq) + 8.0
 	index = np.intersect1d(np.where(freq > a)[0],
 		np.where(freq < b)[0] )
@@ -304,25 +277,22 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	marker = ["o", "^", "s", "v"]
 	for j in range(n_mode):
 		ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
-
 	ax.axis([a, b, c, d])
 	plt.savefig(filepath+"fit.png")
 	plt.close()
 
-	# mean acceptance rate
+	# save mean acceptance rate
 	acceptance_fraction = np.array([np.mean(sampler.acceptance_fraction)])
 	print("Mean acceptance fraction: {:0.3f}".format(acceptance_fraction[0]))
 	np.savetxt(filepath+"acceptance_fraction.txt", acceptance_fraction, delimiter=",", fmt=("%0.8f"), header="acceptance_fraction")
-	#ascii.write(Table([np.array([np.mean(sampler.acceptance_fraction)])]), filepath+"acceptance_fraction.txt", format="csv", overwrite=True)
 
-	# evidence
+	# save evidence
 	evidence = sampler.thermodynamic_integration_log_evidence() 
 	print("Bayesian evidence lnZ: {:0.5f}".format(evidence[0]))
 	print("Bayesian evidence error dlnZ: {:0.5f}".format(evidence[1]))
 	np.savetxt(filepath+"evidence.txt", evidence, delimiter=",", fmt=("%0.8f"), header="bayesian_evidence")
-	#ascii.write(Table(evidence), filepath+"evidence.txt", format="csv", overwrite=True)
 
-	# plot traces
+	# plot traces and save
 	fig = plt.figure(figsize=(5,ndim*3))
 	for i in range(ndim):
 		ax1=fig.add_subplot(ndim,1,i+1)
@@ -331,5 +301,146 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	plt.savefig(filepath+'traces.png')
 	plt.close()
 
+	return
+
+def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array,
+	freq: np.array, power: np.array, powers: np.array, filepath: str):
+	'''
+	Provide a wrapper to fit mode defined in mode_freq
+
+	Input:
+	dnu
+	inclination: in rad
+	fnyq: nyquist frequency, in muHz
+	mode_freq: guessed mode frequencies, in muHz
+	mode_l: 0, 1, 2 or 3
+	freq: frequencies of the power spectrum, in muHz
+	power: backgroud divided power spectrum, S/N
+	powers: smoothed power, to predict amplitude
+	filepath: path to store output files
+
+	Output:
+	Data: acceptance fraction, bayesian evidence, 
+		parameter estimation result, parameter initial guess.
+	Plots: fitting results, posterior distribution, traces.
+
+	'''
+
+	# check
+
+	# initilize
+	n_mode = len(mode_freq)
+	n_mode_l0 = len( np.where(mode_l == 0 )[0] )
+
+	# trim data into range we use
+	index = np.intersect1d(np.where(freq > np.min(mode_freq) - 8.0)[0],
+		np.where(freq < np.max(mode_freq) + 8.0)[0])
+	freq = freq[index]
+	power = power[index]
+	powers = powers[index]
+
+	for i, tmode_freq in enumerate(mode_freq):
+		dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
+		index = np.all(np.array([freq >= np.min(mode_freq)-dnu02*0.6, freq <= np.max(mode_freq)+dnu02*0.6]), axis=0)
+		tfreq, tpower = freq[index], power[index]
+		iden = str(i)
+
+		# defining likelihood and prior
+		# model 0 - nothing but a straight line
+		def lnprior(theta):
+			if tpower.min() <= theta[0] <= tpower.max():
+				return np.log(1.0/(tpower.max() - tpower.min()))
+			else:
+				return -np.inf
+
+		def lnlikelihood(theta):
+			model = np.zeros(len(freq))
+			model += theta[0]
+			model *= ResponseFunction(freq, fnyq)
+			return -np.sum(np.log(model) + power/model)
+
+		# write guessed parameters
+		para_best = np.array([tpower.mean()])
+		np.savetxt(filepath+"guess_h1_"+iden+".txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
+
+		# run mcmc with pt sampler
+		ndim, nwalkers, ntemps = 1, 100, 20
+		print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
+		pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
+		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood, lnprior, threads=1)
+
+		# burn-in
+		nburn, width = 100, 30
+		print("start burning in. nburn:", nburn)
+		for j, result in enumerate(sampler.sample(pos0, iterations=nburn, thin=10)):
+			n = int((width+1) * float(j) / nburn)
+			sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+		sys.stdout.write("\n")
+		pos, lnpost, lnlike = result
+		sampler.reset()
+
+		# actual iteration
+		nsteps, width = 500, 30 # 10000, 30
+		print("start interating. nsteps:", nsteps)
+		for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost, lnlike0=lnlike, thin=10)):
+			#p, lnpost, lnlike = result
+			n = int((width+1) * float(j) / nsteps)
+			sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+		sys.stdout.write("\n")
+
+		# modify samples
+		samples = sampler.chain[0,:,:,:].reshape((-1,ndim))
+
+		# plot triangle and save
+		para = ["W"]
+		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_best)
+		fig.savefig(filepath+"triangle_h1_"+iden+".png")
+		plt.close()
+
+		# save estimation result
+		result = np.array(list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+			zip(*np.percentile(samples, [16, 50, 84],axis=0)))))
+		np.savetxt(filepath+"summary_h1_"+iden+".txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
+
+		# plot fitting result and save
+		para_plot = result[:,0]
+		power_fit = np.zeros(len(freq)) + para_plot[0]
+		fig = plt.figure(figsize=(6,5))
+		ax = fig.add_subplot(1,1,1)
+		ax.plot(freq, power, color="lightgray", label="power")
+		ax.plot(freq, powers, color="black", label="smooth")
+		ax.plot(freq, power_fit, color="orange", label="fit")
+		ax.legend()
+		a, b = np.min(mode_freq) - 8.0, np.max(mode_freq) + 8.0
+		index = np.intersect1d(np.where(freq > a)[0],
+			np.where(freq < b)[0] )
+		c, d = np.min(power[index]), np.max(power[index])
+		color = ["blue", "red", "green", "purple"]
+		marker = ["o", "^", "s", "v"]
+		for j in range(n_mode):
+			ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
+		ax.axis([a, b, c, d])
+		plt.savefig(filepath+"fit.png")
+		plt.close()
+
+		# save mean acceptance rate
+		acceptance_fraction = np.array([np.mean(sampler.acceptance_fraction)])
+		print("Mean acceptance fraction: {:0.3f}".format(acceptance_fraction[0]))
+		np.savetxt(filepath+"acceptance_fraction_h1_"+iden+".txt", acceptance_fraction, delimiter=",", fmt=("%0.8f"), header="acceptance_fraction")
+
+		# save evidence
+		evidence = sampler.thermodynamic_integration_log_evidence() 
+		print("Bayesian evidence lnZ: {:0.5f}".format(evidence[0]))
+		print("Bayesian evidence error dlnZ: {:0.5f}".format(evidence[1]))
+		np.savetxt(filepath+"evidence_h1_"+iden+".txt", evidence, delimiter=",", fmt=("%0.8f"), header="bayesian_evidence")
+
+		# plot traces and save
+		fig = plt.figure(figsize=(5,ndim*3))
+		for i in range(ndim):
+			ax1=fig.add_subplot(ndim,1,i+1)
+			ax1.plot(np.arange(samples.shape[0]), samples[:,i], color="black", lw=1, zorder=1)
+			ax1.set_ylabel(para[i])
+		plt.savefig(filepath+"traces_h1_"+iden+".png")
+		plt.close()
 
 	return

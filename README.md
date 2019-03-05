@@ -1,13 +1,11 @@
 This is a repository of all the codes I have written for asteroseismology projects. Using git is better for the purpose of version control. So I started using them from now! -- 05/12/2018
 
 # Introduction
-err
+hmmm
 
 # Package dependencies
-`numpy`
-`scipy`
-`matplotlib`
-`emcee` while using modefit.py
+1. `numpy`, `scipy`, and `matplotlib`.
+2. `emcee` and `corner` while using modefit.py
 
 # Installation
 1. Git clone to your directory.
