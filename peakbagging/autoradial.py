@@ -222,7 +222,8 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	return
 
 def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 frequencyGuessFile: str):
+	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifmodefit: bool=True, 
+	 ifh1test: bool=False, pthreads: int=1):
 	'''
 	Automatic peakbagging for radial modes in [numax-5*dnu, numax+5*dnu]
 
@@ -233,6 +234,10 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 	numax: in unit of muHz.
 	filepath: file path to store outputs.
 	frequencyGuessFile: input file which stores guessed resules.
+	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	ifmodefit: if fit modes.
+	ifh1test: if perform h1 test.
+	pthreads: the number of threads to use in parallel computing. 
 
 	Output:
 	Files containing necessary outputs.
@@ -259,7 +264,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 
 	inclination, fnyq = 0.0, 283.2
 
-	for i in range(1):#range(ngroups):
+	for i in range(ngroups): #range(1)
 		group = group_all[i]
 		tindex = table[:,0] == group
 		ttable = table[tindex,:]
@@ -269,7 +274,8 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 
 		# be careful! this program designs to fit one radial mode at a time, so each group
 		# should only contain one mode.
-		modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
-		h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
+		if ifmodefit: modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath,
+			fittype=fittype, pthreads=pthreads)
+		if ifh1test: h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath, pthreads=pthreads)
 
 	return
