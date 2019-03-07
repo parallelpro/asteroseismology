@@ -1,8 +1,8 @@
-from .IO import *
+from .io import *
 from .peakbagging import *
 from .tools import *
 
-__all__ = IO.__all__
+__all__ = io.__all__
 __all__.extend(peakbagging.__all__)
 __all__.extend(tools.__all__)
 
