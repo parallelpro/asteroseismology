@@ -8,7 +8,7 @@ import emcee
 import corner
 from scipy.optimize import minimize
 
-import matplotlib as mplt
+import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
 plt.ioff()
