@@ -5,7 +5,6 @@
 import numpy as np
 import sys
 import emcee
-import corner
 from scipy.optimize import minimize
 
 import matplotlib as mpl
@@ -14,6 +13,7 @@ import matplotlib.pyplot as plt
 plt.ioff()
 import os
 
+import corner
 
 __all__ = ["modefitWrapper", "h1testWrapper"]
 
