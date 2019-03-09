@@ -4,10 +4,16 @@
 
 import numpy as np
 import sys
-import matplotlib.pyplot as plt
 import emcee
 import corner
 from scipy.optimize import minimize
+
+import matplotlib as mplt
+mpl.use("Agg")
+import matplotlib.pyplot as plt
+plt.ioff()
+import os
+
 
 __all__ = ["modefitWrapper", "h1testWrapper"]
 
