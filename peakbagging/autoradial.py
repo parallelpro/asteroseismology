@@ -263,7 +263,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 		group_all = np.unique(table[:,0])
 		ngroups = len(group_all)
 
-		inclination, fnyq = 0.0, 283.2
+		inclination, fnyq = 0.0, 283.2 # only for radial modes, LC kepler data
 
 		for i in range(ngroups): #range(1)
 			group = group_all[i]
