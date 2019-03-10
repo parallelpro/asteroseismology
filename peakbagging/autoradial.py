@@ -256,7 +256,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 	powers = smoothWrapper(freq, power, period, "bartlett", samplinginterval)
 
 	# read in table and cluster in group
-	table = np.loadtxt(frequencyGuessFile, delimiter=",")
+	table = np.loadtxt(frequencyGuessFile, delimiter=",", ndmin=2)
 	if len(table) != 0: 
 		index_ifpkbg = table[:,1] == 1
 		table = table[index_ifpkbg]
