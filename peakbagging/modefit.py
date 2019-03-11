@@ -215,15 +215,13 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	n_mode_l0 = len( np.where(mode_l == 0 )[0] )
 
 	# trim data into range we use
-	index = np.intersect1d(np.where(freq > np.min(mode_freq) - 8.0)[0],
-		np.where(freq < np.max(mode_freq) + 8.0)[0])
+	index = np.all(np.array([freq >= np.min(mode_freq)-8.0, freq <= np.max(mode_freq)+8.0]), axis=0)
 	freq = freq[index]
 	power = power[index]
 	powers = powers[index]
 
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
-	index = np.intersect1d(np.where(freq > np.min(mode_freq) - 0.6*dnu02)[0],
-		np.where(freq < np.max(mode_freq) + 0.6*dnu02)[0])
+	index = np.all(np.array([freq >= np.min(mode_freq)-dnu02*0.6, freq <= np.max(mode_freq)+dnu02*0.6]), axis=0)
 	tfreq = freq[index]
 	tpower = power[index]
 	tpowers = powers[index]
@@ -480,7 +478,7 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 		ndim, nwalkers, ntemps = 1, 100, 20
 		print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
 		pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
-		loglargs = [freq, power, fnyq]
+		loglargs = [tfreq, tpower, fnyq]
 		logpargs = [tpower]
 		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m0, lnprior_m0, loglargs=loglargs, logpargs=logpargs, threads=pthreads)
 
