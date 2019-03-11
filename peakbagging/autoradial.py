@@ -15,7 +15,7 @@ plt.ioff()
 import os
 
 
-__all__ = ["autoradialGuess", "autoradialFit"]
+__all__ = ["autoradialGuess", "autoradialFit", "autoradialSummarize"]
 
 def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 lowerbound: float=5.0, upperbound: float=5.0, ifeps: bool =False, teff: float=5777.0):
@@ -280,4 +280,146 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 			if ifh1test: h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath, pthreads=pthreads)
 	else:
 		print("Void guessed frequency input.")
+	return
+
+def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
+	'''
+	Summarize fitted mode parameters from the function autoradialFit.
+
+	Input:
+	frequencyGuessFile: input file which stores guessed resules.
+	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+
+	Output:
+	A summary csv file located in the same directory as the frequencyGuessFile.
+
+	'''
+
+	# check
+	if not os.path.exists(frequencyGuessFile):
+		raise ValueError("frequencyGuessFile does not exist.")
+	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
+		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
+
+	filepath = "/".join(frequencyGuessFile.split("/")[:-1]) + "/"
+
+	# read in table and cluster in group
+	table = np.loadtxt(frequencyGuessFile, delimiter=",", ndmin=2)
+	if len(table) != 0: 
+		index_ifpkbg = table[:,1] == 1
+		table = table[index_ifpkbg]
+		group_all = np.unique(table[:,0])
+		ngroups = len(group_all)
+
+		if ngroups != 0: 
+			# create lists to store results
+			if fittype == "ParallelTempering":
+				keys = ["ngroup", "PTamp", "PTamp_lc", "PTamp_uc", "PTlw", "PTlw_lc", "PTlw_uc", "PTfc", "PTfc_lc", "PTfc_uc", "PTlnK", "PTlnK_err"]
+				fmt = ["%d", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f"]
+			if fittype == "Ensemble":
+				keys = ["ngroup", "ESamp", "ESamp_lc", "ESamp_uc", "ESlw", "ESlw_lc", "ESlw_uc", "ESfc", "ESfc_lc", "ESfc_uc"]
+				fmt = ["%d", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f", "%10.4f"]
+			if fittype == "LeastSquare":
+				keys = ["ngroup", "LSamp", "LSlw", "LSfc"]
+				fmt = ["%d", "%10.4f", "%10.4f", "%10.4f"]
+			data = [[] for i in range(len(keys))]
+
+			# store pkbg results
+			for i in range(ngroups):
+				group = group_all[i]
+				tfilepath = filepath + str(int(group)) + "/"
+				# tindex = table[:,0] == group
+				# ttable = table[tindex,:]		
+
+				if fittype == "ParallelTempering":
+					ttable = np.loadtxt(tfilepath+"PTsummary.txt", delimiter=",", ndmin=2)
+					for j in range(9):
+						data[j+1].append(ttable[int(j/3), j%3])
+					ttable1 = np.loadtxt(tfilepath+"PTevidence.txt", delimiter=",")
+					ttable2 = np.loadtxt(tfilepath+"evidence_h1_0.txt", delimiter=",")
+					data[10].append(ttable1[0]-ttable2[0])
+					data[11].append((ttable1[1]**2.0+ttable2[1]**2.0)**0.5)
+					data[0].append(group)
+
+				if fittype == "Ensemble":
+					ttable = np.loadtxt(tfilepath+"ESsummary.txt", delimiter=",", ndmin=2)
+					for j in range(9):
+						data[j+1].append(ttable[int(j/3), j%3])
+					data[0].append(group)
+
+				if fittype == "LeastSquare":
+					ttable = np.loadtxt(tfilepath+"LSsummary.txt", delimiter=",")
+					for j in range(3):
+						data[j+1].append(ttable[j])
+					data[0].append(group)
+
+
+			# check if previous summary file exists
+			ifexists = False
+			if os.path.exists(filepath+"frequencySummary.csv"):
+				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)
+				if len(olddata) != 0: ifexists = True
+
+			if ifexists:
+				# open old summary file and extract oldkeys and olddata
+				# exclude the last column - "ifpublish"
+				f = open(filepath+"frequencySummary.csv", "r")
+				oldkeys = f.readline().replace(" ","").replace("#","").replace("\n","")
+				oldkeys = np.array(oldkeys.split(","))#[:-1]
+				f.close()
+				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)#[:,:-1] # exclude ifpublish
+				# print("olddata", olddata)
+				# print("oldkeys", oldkeys)
+				add_keys = np.array(oldkeys[:-1])[~np.isin(oldkeys[:-1], keys)]
+				# print("add_keys", add_keys)
+				add_group = np.array(olddata[:,0])[~np.isin(olddata[:,0], data[0])]
+				# print("add_group", add_group)
+				newdata = np.array(data).T
+				n_add_keys, n_add_group = len(add_keys), len(add_group)
+				# print("N,N", n_add_keys, n_add_group)
+				# assign -999.0 to new entries
+				if n_add_keys != 0:
+					newdata = np.concatenate([newdata, np.zeros((np.shape(newdata)[0], n_add_keys))-999.0], axis=1)
+				if n_add_group != 0:
+					newdata = np.concatenate([newdata, np.zeros((n_add_group, np.shape(newdata)[1]))-999.0], axis=0)
+					newdata[-n_add_group:,0] = add_group
+
+				# concatenate "ifpublish"
+				# newkeys, newdata
+				for j in range(n_add_keys):
+					fmt.append("%10.4f")
+				fmt.append("%d")
+				n_add_keys += 1
+				add_keys = np.append(add_keys, "ifpublish")
+				newkeys = np.concatenate([keys, add_keys])
+				newdata = np.concatenate([newdata, np.zeros((np.shape(newdata)[0], 1))+1], axis=1)
+
+
+				nrows, ncols = np.shape(newdata)
+				for j in range(0, nrows):
+					for k in range(ncols - n_add_keys , ncols):
+						tgroup, tkey = newdata[j,0], newkeys[k]
+						index1 = np.where(olddata[:,0] == tgroup)[0]
+						index2 = np.where(oldkeys == tkey)[0]
+						if len(index1) != 0 and len(index2) != 0:
+							newdata[j,k] = olddata[index1[0], index2[0]]
+
+				for j in range(nrows - n_add_group , nrows):
+					for k in range(0, ncols - n_add_keys):
+						tgroup, tkey = newdata[j,0], newkeys[k]
+						index1 = np.where(olddata[:,0] == tgroup)[0]
+						index2 = np.where(oldkeys == tkey)[0]
+						if len(index1) != 0 and len(index2) != 0:
+							newdata[j,k] = olddata[index1[0], index2[0]]
+				
+			else:
+				# not exists - create a new file
+				newkeys, newdata = np.array(keys), np.array(data).T
+				newkeys = np.append(keys, "ifpublish")
+				fmt = np.append(fmt, "%d").tolist()
+				newdata = np.concatenate([newdata, np.zeros((np.shape(newdata)[0], 1))+1], axis=1)
+			
+			# save table
+			np.savetxt(filepath+"frequencySummary.csv", newdata, delimiter=",", fmt=fmt, header=", ".join(newkeys))
+
 	return

@@ -77,9 +77,9 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	powers = powers[index]
 
 	# Flat priors
-	centralFrequency = [mode_freq-0.6*dnu02, mode_freq+0.6*dnu02]
+	centralFrequency = [mode_freq-0.4*dnu02, mode_freq+0.4*dnu02]
 	amplitude = [(np.max(powers)**0.5)*0.1, (np.max(powers)**0.5)*5.0]
-	linewidth = [1e-8, dnu02]
+	linewidth = [1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -221,14 +221,21 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	power = power[index]
 	powers = powers[index]
 
+	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
+	index = np.intersect1d(np.where(freq > np.min(mode_freq) - 0.6*dnu02)[0],
+		np.where(freq < np.max(mode_freq) + 0.6*dnu02)[0])
+	tfreq = freq[index]
+	tpower = power[index]
+	tpowers = powers[index]
+
 	# defining likelihood and prior
 	# model 1 - splitting model
 	flatPriorGuess_split = []
 	para_guess = np.array([])
 
 	for j in range(n_mode):
-		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], freq, power, powers, dnu, True)
-		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], freq, power, powers, dnu, True)
+		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
+		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
 		for k in range(len(para_prior2)):
 			flatPriorGuess_split.append(para_prior2[k])
 			para_guess = np.append(para_guess, para_guess2[k])
@@ -247,7 +254,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			print("enabling ParallelTempering sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
 			pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
-			loglargs = [freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0]
+			loglargs = [tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0]
 			logpargs = [n_mode, n_mode_l0, flatPriorGuess_split]
 			sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m1, lnprior_m1, loglargs=loglargs, logpargs=logpargs, threads=pthreads)
 
@@ -277,7 +284,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			evidence = sampler.thermodynamic_integration_log_evidence() 
 			print("Bayesian evidence lnZ: {:0.5f}".format(evidence[0]))
 			print("Bayesian evidence error dlnZ: {:0.5f}".format(evidence[1]))
-			np.savetxt(filepath+"Bayesevidence.txt", evidence, delimiter=",", fmt=("%0.8f"), header="bayesian_evidence")
+			np.savetxt(filepath+"PTevidence.txt", evidence, delimiter=",", fmt=("%0.8f"), header="bayesian_evidence")
 
 		if fittype == "Ensemble":
 
@@ -286,7 +293,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			print("enabling Ensemble sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers)
 			pos0 = [para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
-			args = [n_mode, n_mode_l0, flatPriorGuess_split, freq, power, inclination, fnyq, mode_l]
+			args = [n_mode, n_mode_l0, flatPriorGuess_split, tfreq, tpower, inclination, fnyq, mode_l]
 			sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpost_m1, args=args, threads=pthreads)
 
 			# burn-in
@@ -314,6 +321,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 		# save samples if the switch is toggled on
 		if ifoutputsamples: samples.save(filepath+"samples.npy")
+		if fittype == "ParallelTempering": st = "PT"
+		if fittype == "Ensemble": st = "ES"
 
 		# plot triangle and save
 		tp = ["amp", "lw", "fc"]
@@ -322,13 +331,13 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		para2 = [tp[k]+str(j) for j in range(n_mode_l0, n_mode) for k in range(4)]
 		para = para1 + para2
 		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_best)
-		fig.savefig(filepath+"Bayestriangle.png")
+		fig.savefig(filepath+st+"triangle.png")
 		plt.close()
 
 		# save estimation result
 		result = np.array(list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
 			zip(*np.percentile(samples, [16, 50, 84],axis=0)))))
-		np.savetxt(filepath+"Bayessummary.txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
+		np.savetxt(filepath+st+"summary.txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
 
 		# plot fitting result and save
 		para_plot = result[:,0]
@@ -355,13 +364,13 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		for j in range(n_mode):
 			ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
 		ax.axis([a, b, c, d])
-		plt.savefig(filepath+"Bayesfit.png")
+		plt.savefig(filepath+st+"fit.png")
 		plt.close()
 
 		# save mean acceptance rate
 		acceptance_fraction = np.array([np.mean(sampler.acceptance_fraction)])
 		print("Mean acceptance fraction: {:0.3f}".format(acceptance_fraction[0]))
-		np.savetxt(filepath+"Bayesacceptance_fraction.txt", acceptance_fraction, delimiter=",", fmt=("%0.8f"), header="acceptance_fraction")
+		np.savetxt(filepath+st+"acceptance_fraction.txt", acceptance_fraction, delimiter=",", fmt=("%0.8f"), header="acceptance_fraction")
 
 		# plot traces and save
 		fig = plt.figure(figsize=(5,ndim*3))
@@ -369,14 +378,14 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			ax1=fig.add_subplot(ndim,1,i+1)
 			ax1.plot(np.arange(samples.shape[0]), samples[:,i], color="black", lw=1, zorder=1)
 			ax1.set_ylabel(para[i])
-		plt.savefig(filepath+'Bayestraces.png')
+		plt.savefig(filepath+st+'traces.png')
 		plt.close()
 
 	if fittype == "LeastSquare":
 		
 		# maximize likelihood function by scipy.optimize.minimize function
 		function = lambda *arg: -lnlikelihood_m1(*arg)
-		args = (freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0)
+		args = (tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0)
 		result = minimize(function, para_guess, args=args, bounds=flatPriorGuess_split)
 
 		# save estimation result
