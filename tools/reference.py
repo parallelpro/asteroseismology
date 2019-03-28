@@ -134,12 +134,24 @@ def refresh_bibtex_entry(inputfile:str, outputfile:str):
 			index_citekey_accessed.append(index)
 			tcitekey = citekey[index]
 			data = data.replace(data[replace_index1:replace_index2], tcitekey+",")
+
+
 	
 	# print those who didn't get an entry from ads.
 	index_citekey_accessed = np.sort(np.array(index_citekey_accessed))
 	index_citekey_naccessed = np.setdiff1d(np.arange(len(citekey)), index_citekey_accessed)
 	print(citekey[index_citekey_naccessed])
 	print(identifier[index_citekey_naccessed])
+
+	# little modification:
+	#2018bellinger-phd-inverse-problem
+	index = data.find("school = {Max Planck Institute for Solar System")
+	data = data.replace(data[index: index+109], "school = {Max Planck Institute for Solar System Research},")
+
+	#2018ting++100000-rc-lamost
+	index = data.find("A Large and Pristine Sample of Standard Candles across the Milky Way: ")
+	data = data.replace(data[index: index+122], "A Large and Pristine Sample of Standard Candles across the Milky Way: {$\sim$}100,000 Red Clump Stars with 3\% Contamination")
+
 
 	# # step 4: output
 	f = open(outputfile, "w")
