@@ -8,7 +8,7 @@ import re
 
 __all__ = ["refresh_bibtex_entry"]
 
-def refresh_bibtex_entry(inputfile:str, outputfile:str):
+def refresh_bibtex_entry(inputfile:str, outputfile:str, ifadd:bool=True):
 	'''
 	Refresh a bibliography file to entries provided by ads service while 
 	maintaining the old citekey. Entries are matched by the doi number.
@@ -72,6 +72,27 @@ def refresh_bibtex_entry(inputfile:str, outputfile:str):
 							identifier.append(-1)
 							doiorbibcode.append(-1)
 
+	# # step 1.5: remove those already existed in outputfile
+	if ifadd:
+		f = open(outputfile, "r")
+		data = f.read()
+		f.close()
+
+		citekey_o = []
+		data_lines = data.split("\n")
+		index_entries = []
+		for i, line in enumerate(data_lines):
+			if len(line) != 0:
+				if line[0]=="@": index_entries.append(i)
+		index_entries.append(len(data_lines))
+
+		for i in range(len(index_entries)-1):
+			entries = data_lines[index_entries[i]:index_entries[i+1]]
+			citekey_o.append(entries[0].split("{")[1][:-1])
+
+		index_unique = np.isin(np.array(citekey), np.array(citekey_o))
+		citekey, identifier, doiorbibcode = np.array(citekey)[~index_unique], np.array(identifier)[~index_unique], np.array(doiorbibcode)[~index_unique]
+
 
 	# # step 2: send a query
 	index = np.array(identifier) == "-1"
@@ -82,19 +103,15 @@ def refresh_bibtex_entry(inputfile:str, outputfile:str):
 	for i in range(len(doiorbibcode)):
 		if doiorbibcode[i] == 1: concate.append("doi="+identifier[i])
 		if doiorbibcode[i] == 2: concate.append("bibcode="+identifier[i])
-	f = open(outputfile, "w")
+	data = ""
 	for i in range(int(len(concate)/100)+1):
 		url = "http://adsabs.harvard.edu/cgi-bin/abs_connect?"+"&".join(concate[i*100:(i+1)*100]) #doi="+"10.3847/1538-4365/aaccfb"
 		url += "&data_type=BIBTEX&nocookieset=1"	#&db_key=AST
-		data = urllib.request.urlopen(url).read().decode()
-		f.write(data)
-	f.close()
+		data += urllib.request.urlopen(url).read().decode()
+
 
 
 	# # step 3: replace with the original citekey
-	f = open(outputfile, "r")
-	data = f.read()
-	f.close()
 
 	# find new dois and bibcodes from the data file
 	new_bibcodes = re.compile("@.*\{\d{4}.*").findall(data)
@@ -146,15 +163,29 @@ def refresh_bibtex_entry(inputfile:str, outputfile:str):
 	# little modification:
 	#2018bellinger-phd-inverse-problem
 	index = data.find("school = {Max Planck Institute for Solar System")
-	data = data.replace(data[index: index+109], "school = {Max Planck Institute for Solar System Research},")
+	if index!=-1:
+		data = data.replace(data[index: index+109], "school = {Max Planck Institute for Solar System Research},")
 
 	#2018ting++100000-rc-lamost
 	index = data.find("A Large and Pristine Sample of Standard Candles across the Milky Way: ")
-	data = data.replace(data[index: index+122], "A Large and Pristine Sample of Standard Candles across the Milky Way: {$\sim$}100,000 Red Clump Stars with 3\% Contamination")
+	if index!=-1:
+		data = data.replace(data[index: index+122], "A Large and Pristine Sample of Standard Candles across the Milky Way: {$\sim$}100,000 Red Clump Stars with 3\% Contamination")
 
+	#1980gough-theoretical-remarks-on-stellar-oscillations
+	index = data.find("      doi = {10.1007/3-540-09994-8_27},")
+	if index!=-1:
+		data = data.replace(data[index: index+41], "")
+
+	#2015metcalfe++16-cyg-a-b
+	index = data.find("Asteroseismic Modeling of 16 Cyg A")
+	if index!=-1:
+		data = data.replace(data[index: index+78], "Asteroseismic Modeling of 16 Cyg A \& B using the Complete Kepler Data Set")
 
 	# # step 4: output
-	f = open(outputfile, "w")
+	if ifadd:
+		f = open(outputfile, "a")
+	else:
+		f = open(outputfile, "w")
 	f.write(data)
 	f.close()
 

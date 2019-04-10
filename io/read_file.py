@@ -1,4 +1,4 @@
-#!/usr/bin/env/ ipython
+#!/usr/bin/env/ python
 # coding: utf-8
 
 
@@ -62,5 +62,3 @@ def read_yu_power_spectra(filepath: str):
 			spec[keys[i]] = values[i]
 
 	return spec
-
-
