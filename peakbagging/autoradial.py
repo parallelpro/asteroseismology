@@ -123,8 +123,8 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	else:
 		offset = 0.0
 	freqc += -offset
-	freqc[freqc > 2.0*dnu] += -dnu
-	freqc[freqc < 0.0] += dnu
+	freqc[freqc > 2.0*dnu] += -2.0*dnu
+	freqc[freqc < 0.0] += 2.0*dnu
 
 	index = np.argsort(freqc)
 	freqc, powerc, xtemplate = freqc[index], powerc[index], xtemplate[index],
