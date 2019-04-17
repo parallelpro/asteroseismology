@@ -50,10 +50,10 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	highc = highc - offset
 	x = x - offset
 
-	if lowc <= 0.0:
-		lowc = 0.0
-	else:
-		lowc = lowc - (lowc % period)
+	# if lowc <= 0.0:
+	# 	lowc = 0.0
+	# else:
+	lowc = lowc - (lowc % period)
 
 	# trim data
 	index = np.intersect1d(np.where(x>=lowc)[0],np.where(x<=highc)[0])

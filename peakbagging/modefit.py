@@ -79,7 +79,7 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	# Flat priors
 	centralFrequency = [mode_freq-0.4*dnu02, mode_freq+0.4*dnu02]
 	amplitude = [(np.max(powers)**0.5)*0.1, (np.max(powers)**0.5)*5.0]
-	linewidth = [1e-8, dnu02*0.7]
+	linewidth = [0.0, 3.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -177,7 +177,8 @@ def lnlikelihood_m0(theta, freq, power, fnyq):
 
 def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.array, mode_l: np.array,
 	freq: np.array, power: np.array, powers: np.array, filepath: str, fittype: str="ParallelTempering",
-	ifoutputsamples: bool=False, pthreads: int=1):
+	ifoutputsamples: bool=False, para_guess: np.array=None, fitlowerbound: float=None,
+	fitupperbound: float=None):
 	'''
 	Provide a wrapper to fit mode defined in mode_freq
 
@@ -186,13 +187,15 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	inclination: in rad
 	fnyq: nyquist frequency, in muHz
 	mode_freq: guessed mode frequencies, in muHz
-	mode_l: 0, 1, 2 or 3
+	mode_l: 0, 1, 2 or 3, should be sorted from smaller values (very important!).
 	freq: frequencies of the power spectrum, in muHz
 	power: backgroud divided power spectrum, S/N
 	powers: smoothed power, to predict amplitude
 	filepath: path to store output files
 	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"]
-	pthreads: the number of threads to use in parallel computing
+	para_guess: a np.array which specifies the initial guess for parameters.
+	fitlowerbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
+	fitupperbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
 
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
@@ -208,20 +211,25 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		raise ValueError("not len(freq) == len(power) == len(powers)")
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
-
+	automode = True if para_guess == None else False
+	if fitlowerbound==None: fitlowerbound=(0.122*dnu + 0.05)*0.6 # Bedding+2011 low luminosity RGB
+	if fitupperbound==None: fitupperbound=(0.122*dnu + 0.05)*0.6
 
 	# initilize
 	n_mode = len(mode_l)
 	n_mode_l0 = len( np.where(mode_l == 0 )[0] )
 
 	# trim data into range we use
-	index = np.all(np.array([freq >= np.min(mode_freq)-8.0, freq <= np.max(mode_freq)+8.0]), axis=0)
+	# this is for plot
+	index = np.all(np.array([freq >= np.min(mode_freq)-8.0, 
+		freq <= np.max(mode_freq)+8.0]), axis=0)
 	freq = freq[index]
 	power = power[index]
 	powers = powers[index]
 
-	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
-	index = np.all(np.array([freq >= np.min(mode_freq)-dnu02*0.6, freq <= np.max(mode_freq)+dnu02*0.6]), axis=0)
+	# this is for fit
+	index = np.all(np.array([freq >= np.min(mode_freq)-fitlowerbound, 
+		freq <= np.max(mode_freq)+fitupperbound]), axis=0)
 	tfreq = freq[index]
 	tpower = power[index]
 	tpowers = powers[index]
@@ -229,14 +237,14 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	# defining likelihood and prior
 	# model 1 - splitting model
 	flatPriorGuess_split = []
-	para_guess = np.array([])
+	if automode: para_guess = np.array([])
 
 	for j in range(n_mode):
 		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
 		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
 		for k in range(len(para_prior2)):
 			flatPriorGuess_split.append(para_prior2[k])
-			para_guess = np.append(para_guess, para_guess2[k])
+			if automode: para_guess = np.append(para_guess, para_guess2[k])
 
 	
 	# write guessed parameters
@@ -254,7 +262,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 			loglargs = [tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0]
 			logpargs = [n_mode, n_mode_l0, flatPriorGuess_split]
-			sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m1, lnprior_m1, loglargs=loglargs, logpargs=logpargs, threads=pthreads)
+			sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m1, lnprior_m1, loglargs=loglargs, logpargs=logpargs)
 
 			# burn-in
 			nburn, width = 1000, 30
@@ -292,7 +300,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers)
 			pos0 = [para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
 			args = [n_mode, n_mode_l0, flatPriorGuess_split, tfreq, tpower, inclination, fnyq, mode_l]
-			sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpost_m1, args=args, threads=pthreads)
+			sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpost_m1, args=args)
 
 			# burn-in
 			nburn, width = 1000, 30
@@ -420,7 +428,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	return
 
 def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array,
-	freq: np.array, power: np.array, powers: np.array, filepath: str, pthreads: int=1):
+	freq: np.array, power: np.array, powers: np.array, filepath: str, fitlowerbound: float=None,
+	fitupperbound: float=None):
 	'''
 	Provide a wrapper to fit mode defined in mode_freq
 
@@ -434,7 +443,9 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 	power: backgroud divided power spectrum, S/N
 	powers: smoothed power, to predict amplitude
 	filepath: path to store output files
-	pthreads: the number of threads to use in parallel computing.
+	fitlowerbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
+	fitupperbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
+
 
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
@@ -448,7 +459,8 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 		raise ValueError("len(mode_freq) != len(mode_l)")
 	if not len(freq) == len(power) == len(powers):
 		raise ValueError("not len(freq) == len(power) == len(powers)")
-
+	if fitlowerbound==None: fitlowerbound=(0.122*dnu + 0.05)*0.6 # Bedding+2011 low luminosity RGB
+	if fitupperbound==None: fitupperbound=(0.122*dnu + 0.05)*0.6
 
 	# initilize
 	n_mode = len(mode_freq)
@@ -463,7 +475,8 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 
 	for i, tmode_freq in enumerate(mode_freq):
 		dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
-		index = np.all(np.array([freq >= np.min(mode_freq)-dnu02*0.6, freq <= np.max(mode_freq)+dnu02*0.6]), axis=0)
+		index = np.all(np.array([freq >= np.min(mode_freq)-fitlowerbound,
+		 freq <= np.max(mode_freq)+fitupperbound]), axis=0)
 		tfreq, tpower = freq[index], power[index]
 		iden = str(i)
 
@@ -480,7 +493,7 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 		pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 		loglargs = [tfreq, tpower, fnyq]
 		logpargs = [tpower]
-		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m0, lnprior_m0, loglargs=loglargs, logpargs=logpargs, threads=pthreads)
+		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m0, lnprior_m0, loglargs=loglargs, logpargs=logpargs)
 
 		# burn-in
 		nburn, width = 100, 30

@@ -176,13 +176,10 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	ax1.axvline(eps_cross*dnu-offset+dnu+1.0*dnu02, linestyle="--", color="C1")
 	ax1.set_ylabel("Frequency [muHz]")
 
-	l0_freq = np.array(peaks) - offset
-	l0_rfreq =  l0_freq % dnu
-	index = np.where(l0_rfreq < 0)[0]
-	l0_rfreq[index] = l0_rfreq[index] + dnu
-	index = np.where(l0_rfreq > dnu)[0]
-	l0_rfreq[index] = l0_rfreq[index] - dnu
-	l0_freq = l0_freq - ((l0_freq - offset) % dnu) + dnu/2.0
+	mode_freq = np.array(peaks)
+	l0_rfreq = (mode_freq-offset) % dnu
+	l0_freq = (mode_freq-offset) - ((mode_freq-offset) % dnu) + dnu/2.0 + offset
+
 	ax1.plot(l0_rfreq, l0_freq, "x", color="C3")
 	ax1.plot(l0_rfreq+dnu, l0_freq-dnu, "x", color="C3")
 
