@@ -18,7 +18,7 @@ import os
 __all__ = ["manualGuess", "manualFit", "manualSummarize"]
 
 def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, eps=-999.0):
+	 lowerbound: float=5.0, upperbound: float=5.0, eps=None):
 	'''
 	Initial guess for all peaks in [numax-lowerbound*dnu, numax+upperbound*dnu], 
 	with a user adjustable epsilon.
@@ -54,7 +54,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	if upperbound <= 0:
 		raise ValueError("upperbound <= 0")
 
-	if eps!=-999.0 and (eps<0.0 or eps>1.0):
+	if eps!=None and (eps<0.0 or eps>1.0):
 		raise ValueError("eps should be between 0 and 1.")
 
 	# set up plot
@@ -89,7 +89,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	### Guess epsilon:
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2010, but only fit for dnu 8 - 20
 	dnu01 = 0.520*dnu
-	if eps == -999.0:
+	if eps == None:
 		### construct a template series containing two peaks separated by the small separation,
 		###    then cross correlate it with the collapsed series.
 		# now consider the second method
@@ -365,6 +365,8 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 			igroup = groups[i]
 			ttable = table[table[:,2]==igroup]
 			mode_freq, mode_l = ttable[:,4], np.array(ttable[:,3], dtype=int)
+			index = np.argsort(mode_l)
+			mode_freq, mode_l = mode_freq[index], mode_l[index]
 			fitlowerbound, fitupperbound = dnu*0.1, dnu*0.1
 			tfilepath = filepath + "{:0.0f}".format(igroup) + "/"
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
