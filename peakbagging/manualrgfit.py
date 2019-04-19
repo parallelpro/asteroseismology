@@ -195,24 +195,28 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		# ax1: the whole dnu range, ax2: only the l=1 range
 		ax1 = fig.add_subplot(n_blocks,3,3*n_blocks-3*i-1)
 		ax2 = fig.add_subplot(n_blocks,3,3*n_blocks-3*i)
-		ax1.plot(freq[index_norder], power[index_norder], color="black")
+		ax1.plot(freq[index_norder], power[index_norder], color="gray")
 		ax1.plot(freq[tindex_l[0]], powers[tindex_l[0]], color="C0", linewidth=1)
 		ax1.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=1)
 		ax1.plot(freq[tindex_l[2]], powers[tindex_l[2]], color="C2", linewidth=1)
 		ax1.plot(freq[tindex_l[3]], powers[tindex_l[3]], color="C1", linewidth=1)
-		ax2.plot(freq[tindex_l[1]], power[tindex_l[1]], color="black")
+		ax2.plot(freq[tindex_l[1]], power[tindex_l[1]], color="gray")
 		ax2.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=1)
 		ax2.text(1.1, 0.5, str(i), ha="center", va="center", transform=ax2.transAxes, 
 			bbox=dict(facecolor='white', edgecolor="black"))
 
 		# label the mode candidates
 		colors=["C0","C3","C2","C1"]
-		Npeaks = len(tmode_freq)
+		markers=["o", "^", "s", "v"]
+		c, d = ax1.get_ylim()
+		Npeaks, Npeaks1 = len(tmode_freq), len(tmode_freq[tmode_l==1])
 		for ipeak in range(Npeaks):
-			ax1.axvline(tmode_freq[ipeak], linestyle=":", color=colors[tmode_l[ipeak]], linewidth=1)
-		Npeaks1 = len(tmode_freq[tmode_l==1])
+			ax1.scatter([tmode_freq[ipeak]],[c+(d-c)*0.8], c=colors[tmode_l[ipeak]], 
+				marker=markers[tmode_l[ipeak]], zorder=10)
+		c, d = ax2.get_ylim()
 		for ipeak in range(Npeaks1):
-			ax2.axvline(tmode_freq[tmode_l==1][ipeak], linestyle=":", color=colors[1], linewidth=1)
+			ax2.scatter([tmode_freq[tmode_l==1][ipeak]],[c+(d-c)*0.8], c=colors[tmode_l[ipeak]], 
+				marker=markers[tmode_l[ipeak]], zorder=10)
 
 		### end of visulization
 
