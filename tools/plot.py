@@ -6,7 +6,8 @@ import numpy as np
 
 __all__ = ["echelle"]
 
-def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, echelletype: str="single", offset: float=0.0):
+def echelle(x: np.array, y: np.array, period: float, 
+	lowc: float, highc: float, echelletype: str="single", offset: float=0.0):
 	'''
 	Generate a z-map for echelle plotting.
 
@@ -74,7 +75,7 @@ def echelle(x: np.array, y: np.array, period: float, lowc: float, highc: float, 
 	arr2 = np.array([arr,arr])
 	yn = np.reshape(arr2,len(arr)*2,order="F")
 	yn = np.insert(yn,0,0.0)
-	yn = np.append(yn,n_stack*period) + lowc + offset
+	yn = np.append(yn,n_stack*period) + lowc #+ offset
 
 	if echelletype == "single":
 		xn = np.arange(1,n_element+1)/n_element * period

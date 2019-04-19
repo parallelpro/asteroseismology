@@ -7,12 +7,8 @@ import sys
 import emcee
 from scipy.optimize import minimize
 
-import matplotlib as mpl
-mpl.use("Agg")
 import matplotlib.pyplot as plt
-plt.ioff()
 import os
-
 import corner
 
 __all__ = ["modefitWrapper", "h1testWrapper"]
@@ -70,16 +66,19 @@ def LorentzianSplittingMixtureModel(freq, modelParameters, fnyq, mode_l):
 
 	return power
 
-def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, ifReturnSplitModelPrior = False):
+def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu,
+	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
+	if lowerbound==None: lowerbound = mode_freq - 0.01*dnu
+	if upperbound==None: upperbound = mode_freq + 0.01*dnu
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
-	index = np.intersect1d(np.where(freq > mode_freq - 0.6*dnu02)[0],np.where(freq < mode_freq + 0.6*dnu02)[0])
+	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	power = power[index]
 	powers = powers[index]
 
 	# Flat priors
 	centralFrequency = [mode_freq-0.4*dnu02, mode_freq+0.4*dnu02]
 	amplitude = [(np.max(powers)**0.5)*0.1, (np.max(powers)**0.5)*5.0]
-	linewidth = [0.0, 3.0]#[1e-8, dnu02*0.7]
+	linewidth = [5e-3, 3.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -97,15 +96,18 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 		return prior1
 
 
-def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, ifReturnSplitModelPrior = False):
+def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, 
+	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
+	if lowerbound==None: lowerbound = mode_freq - 0.01*dnu
+	if upperbound==None: upperbound = mode_freq + 0.01*dnu
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
-	index = np.intersect1d(np.where(freq > mode_freq - 0.6*dnu02)[0],np.where(freq < mode_freq + 0.6*dnu02)[0])
+	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	power = power[index]
 	powers = powers[index]
 	centralFrequency = mode_freq
 
 	amplitude = np.max(powers)**0.5 * 2.0
-	linewidth = 0.01*dnu
+	linewidth = 0.1
 
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
@@ -211,7 +213,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		raise ValueError("not len(freq) == len(power) == len(powers)")
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
-	automode = True if para_guess == None else False
+	automode = True if isinstance(para_guess, type(None)) else False
 	if fitlowerbound==None: fitlowerbound=(0.122*dnu + 0.05)*0.6 # Bedding+2011 low luminosity RGB
 	if fitupperbound==None: fitupperbound=(0.122*dnu + 0.05)*0.6
 
@@ -239,9 +241,14 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	flatPriorGuess_split = []
 	if automode: para_guess = np.array([])
 
+	# sort_mode_freq = np.sort(mode_freq)
 	for j in range(n_mode):
-		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
-		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], tfreq, tpower, tpowers, dnu, True)
+		# lowerbound = mode_freq[j-1] if j != 0 else mode_freq[j] - 0.01*dnu
+		# upperbound = mode_freq[j+1] if j != n_mode-1 else mode_freq[j] + 0.01*dnu
+		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], 
+			tfreq, tpower, tpowers, dnu, True)
+		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], 
+			tfreq, tpower, tpowers, dnu, True)
 		for k in range(len(para_prior2)):
 			flatPriorGuess_split.append(para_prior2[k])
 			if automode: para_guess = np.append(para_guess, para_guess2[k])

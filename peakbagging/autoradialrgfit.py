@@ -6,12 +6,10 @@ import numpy as np
 from asteroseismology.tools.series import smoothWrapper, lorentzian, gaussian, c_correlate
 from asteroseismology.tools.plot import echelle
 from asteroseismology.peakbagging.modefit import modefitWrapper, h1testWrapper
+from asteroseismology.globe import sep
 from scipy.signal import find_peaks
 
-import matplotlib as mpl
-mpl.use("Agg")
 import matplotlib.pyplot as plt
-plt.ioff()
 import os
 
 
@@ -267,7 +265,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 			tindex = table[:,0] == group
 			ttable = table[tindex,:]
 			mode_freq, mode_l = ttable[:,2], np.zeros(len(ttable), dtype=int)
-			tfilepath = filepath + "{:0.0f}".format(group) + "/"
+			tfilepath = filepath + "{:0.0f}".format(group) + sep
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
 
 			# be careful! this program designs to fit one radial mode at a time, so each group
@@ -298,7 +296,7 @@ def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
 
-	filepath = "/".join(frequencyGuessFile.split("/")[:-1]) + "/"
+	filepath = sep.join(frequencyGuessFile.split(sep)[:-1]) + sep
 
 	# read in table and cluster in group
 	table = np.loadtxt(frequencyGuessFile, delimiter=",", ndmin=2)
@@ -324,7 +322,7 @@ def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering
 			# store pkbg results
 			for i in range(ngroups):
 				group = group_all[i]
-				tfilepath = filepath + str(int(group)) + "/"
+				tfilepath = filepath + str(int(group)) + sep
 				# tindex = table[:,0] == group
 				# ttable = table[tindex,:]		
 

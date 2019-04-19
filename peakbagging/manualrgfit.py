@@ -6,12 +6,10 @@ import numpy as np
 from asteroseismology.tools.series import smoothWrapper, lorentzian, gaussian, c_correlate
 from asteroseismology.tools.plot import echelle
 from asteroseismology.peakbagging.modefit import modefitWrapper, h1testWrapper
+from asteroseismology.globe import sep
 from scipy.signal import find_peaks
 
-import matplotlib as mpl
-mpl.use("Agg")
 import matplotlib.pyplot as plt
-plt.ioff()
 import os
 
 
@@ -158,6 +156,14 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	for i in range(n_blocks):
 		freq_low, freq_high = freq_init+i*dnu, freq_init+(i+1)*dnu
 		index_norder = np.all(np.array([freq>=freq_low,freq<freq_high]),axis=0)
+
+		# labels on the right side of the echelle
+		label_text.append("{:0.0f}".format(i))
+		label_echx.append(2.01*dnu)
+		# py = (freq_high-0.1*dnu) - ((freq_high-offset-0.1*dnu) % dnu) - dnu/2.0
+		py = freq_high-dnu/2.0-dnu
+		label_echy.append(py)
+
 		if len(np.where(index_norder == True)[0])==0:
 			continue
 		
@@ -190,12 +196,12 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		ax1 = fig.add_subplot(n_blocks,3,3*n_blocks-3*i-1)
 		ax2 = fig.add_subplot(n_blocks,3,3*n_blocks-3*i)
 		ax1.plot(freq[index_norder], power[index_norder], color="black")
-		ax1.plot(freq[tindex_l[0]], powers[tindex_l[0]], color="C0", linewidth=3)
-		ax1.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=3)
-		ax1.plot(freq[tindex_l[2]], powers[tindex_l[2]], color="C2", linewidth=3)
-		ax1.plot(freq[tindex_l[3]], powers[tindex_l[3]], color="C1", linewidth=3)
+		ax1.plot(freq[tindex_l[0]], powers[tindex_l[0]], color="C0", linewidth=1)
+		ax1.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=1)
+		ax1.plot(freq[tindex_l[2]], powers[tindex_l[2]], color="C2", linewidth=1)
+		ax1.plot(freq[tindex_l[3]], powers[tindex_l[3]], color="C1", linewidth=1)
 		ax2.plot(freq[tindex_l[1]], power[tindex_l[1]], color="black")
-		ax2.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=3)
+		ax2.plot(freq[tindex_l[1]], powers[tindex_l[1]], color="C3", linewidth=1)
 		ax2.text(1.1, 0.5, str(i), ha="center", va="center", transform=ax2.transAxes, 
 			bbox=dict(facecolor='white', edgecolor="black"))
 
@@ -203,17 +209,10 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		colors=["C0","C3","C2","C1"]
 		Npeaks = len(tmode_freq)
 		for ipeak in range(Npeaks):
-			ax1.axvline(tmode_freq[ipeak], linestyle="--", color=colors[tmode_l[ipeak]], linewidth=3)
+			ax1.axvline(tmode_freq[ipeak], linestyle=":", color=colors[tmode_l[ipeak]], linewidth=1)
 		Npeaks1 = len(tmode_freq[tmode_l==1])
 		for ipeak in range(Npeaks1):
-			ax2.axvline(tmode_freq[tmode_l==1][ipeak], linestyle="--", color=colors[1], linewidth=3)
-
-
-		# labels on the right side of the echelle
-		label_text.append("{:0.0f}".format(i))
-		label_echx.append(2.01*dnu)
-		py = (freq_high-offset) - ((freq_high-offset) % dnu) + dnu/2.0 + offset - dnu
-		label_echy.append(py)
+			ax2.axvline(tmode_freq[tmode_l==1][ipeak], linestyle=":", color=colors[1], linewidth=1)
 
 		### end of visulization
 
@@ -230,13 +229,14 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	ax1.axvline(dnu, color="C0")
 	# labels on the right side of the echelle
 	for iblock in range(n_blocks):
-		ax1.text(label_echx[iblock], label_echy[iblock], label_text[iblock], verticalalignment='center')
+		ax1.text(label_echx[iblock], label_echy[iblock], label_text[iblock],
+		 verticalalignment="center")
 	ax1.set_ylabel("Frequency [muHz]")
 
 
 	# mark mode candidates on the echelle
 	px = (mode_freq-offset) % dnu
-	py = (mode_freq-offset) - ((mode_freq-offset) % dnu) + dnu/2.0 + offset
+	py = (mode_freq-offset) - ((mode_freq-offset) % dnu) + dnu/2.0 #+ offset
 	for l in range(4):
 		if len(px[mode_l==l]) == 0: continue
 		ax1.plot(px[mode_l==l], py[mode_l==l], "x", color=colors[l])
@@ -361,15 +361,16 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 
 		if automode: rstart, rend = 0, Ngroups
 		if not automode: rstart, rend = igroup, igroup+1
-		for i in range(rstart, rend): #range(1)
-			igroup = groups[i]
+		for igroup in range(rstart, rend): #range(1)
+			print("Fitting group,", igroup)
 			ttable = table[table[:,2]==igroup]
 			mode_freq, mode_l = ttable[:,4], np.array(ttable[:,3], dtype=int)
 			index = np.argsort(mode_l)
 			mode_freq, mode_l = mode_freq[index], mode_l[index]
 			fitlowerbound, fitupperbound = dnu*0.1, dnu*0.1
-			tfilepath = filepath + "{:0.0f}".format(igroup) + "/"
+			tfilepath = filepath + "{:0.0f}".format(igroup) + sep
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
+			if ifreadfromLS: para_guess = np.loadtxt(tfilepath+sep+"LSsummary.txt", delimiter=",")
 
 			# modefit
 			modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, 
@@ -399,7 +400,7 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
 	if not fittype in ["Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['Ensemble', 'LeastSquare']")
 
-	filepath = "/".join(frequencyGuessFile.split("/")[:-1]) + "/"
+	filepath = sep.join(frequencyGuessFile.split(sep)[:-1]) + sep
 
 	# read in table and cluster in group
 	table = np.loadtxt(frequencyGuessFile, delimiter=",", ndmin=2)
@@ -423,7 +424,7 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
 
 			# store pkbg results
 			for igroup in group_all:
-				tfilepath = filepath + str(int(igroup)) + "/"
+				tfilepath = filepath + str(int(igroup)) + sep
 				mode_l = table[table[:,2]==igroup][:,3]
 				mode_id = table[table[:,2]==igroup][:,0]
 
