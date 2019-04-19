@@ -16,7 +16,7 @@ import os
 __all__ = ["autoradialGuess", "autoradialFit", "autoradialSummarize"]
 
 def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, ifeps: bool =False, teff: float=5777.0):
+	 lowerbound: float=5.0, upperbound: float=5.0, ifeps: bool =False, teff: float=5777.0, starid=None):
 	'''
 	Automatic initial guess for radial modes in [numax-5*dnu, numax+5*dnu]
 
@@ -28,6 +28,7 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 	filepath: file path to store outputs.
 	lowerbound: the lower boundary of the power spectrum slice, in unit of dnu.
 	upperbound: the upper boundary of the power spectrum slice, in unit of dnu.
+	starid: star ID.
 
 	Output:
 	Files containing necessary outputs.
@@ -48,6 +49,8 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 
 	if upperbound <= 0:
 		raise ValueError("upperbound <= 0")
+
+	starid = "_"+starid if starid != None else ""
 
 	# set up plot
 	fig = plt.figure(figsize=(10,10))
@@ -206,19 +209,19 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 
 
 	# save plot
-	plt.savefig(filepath+"autoradialGuess.png")
+	plt.savefig(filepath+"autoradialGuess"+starid+".png")
 	plt.close()
 
 	# save a table
 	table = np.array([np.arange(len(peaks)), np.zeros(len(peaks))+1, peaks]).T
-	np.savetxt(filepath+"frequencyGuess.csv", table, delimiter=",", fmt=("%d","%d","%10.4f"), 
+	np.savetxt(filepath+"frequencyGuess"+starid+".csv", table, delimiter=",", fmt=("%d","%d","%10.4f"), 
 		header="ngroup, ifpkbg, freqGuess")
 
 	return
 
 def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifmodefit: bool=True, 
-	 ifh1test: bool=False, pthreads: int=1):
+	 ifh1test: bool=False, starid=None):
 	'''
 	Automatic peakbagging for radial modes in [numax-5*dnu, numax+5*dnu]
 
@@ -232,7 +235,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
 	ifmodefit: if fit modes.
 	ifh1test: if perform h1 test.
-	pthreads: the number of threads to use in parallel computing. 
+	starid: star ID.
 
 	Output:
 	Files containing necessary outputs.
@@ -245,6 +248,7 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 
 	if len(freq) != len(power):
 		raise ValueError("len(freq) != len(power)")
+	starid = "_"+starid if starid != None else ""
 
 	# smooth the power spectrum
 	period, samplinginterval = dnu/50.0, np.median(freq[1:-1] - freq[0:-2])
@@ -271,19 +275,20 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 			# be careful! this program designs to fit one radial mode at a time, so each group
 			# should only contain one mode.
 			if ifmodefit: modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath,
-				fittype=fittype, pthreads=pthreads)
-			if ifh1test: h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath, pthreads=pthreads)
+				fittype=fittype)
+			if ifh1test: h1testWrapper(dnu, fnyq, mode_freq, mode_l, freq, power, powers, tfilepath)
 	else:
 		print("Void guessed frequency input.")
 	return
 
-def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
+def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", starid=None):
 	'''
 	Summarize fitted mode parameters from the function autoradialFit.
 
 	Input:
 	frequencyGuessFile: input file which stores guessed resules.
 	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	starid: star ID.
 
 	Output:
 	A summary csv file located in the same directory as the frequencyGuessFile.
@@ -295,6 +300,7 @@ def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering
 		raise ValueError("frequencyGuessFile does not exist.")
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
+	starid = "_"+starid if starid != None else ""
 
 	filepath = sep.join(frequencyGuessFile.split(sep)[:-1]) + sep
 
@@ -351,18 +357,18 @@ def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering
 
 			# check if previous summary file exists
 			ifexists = False
-			if os.path.exists(filepath+"frequencySummary.csv"):
-				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)
+			if os.path.exists(filepath+"frequencySummary"+starid+".csv"):
+				olddata = np.loadtxt(filepath+"frequencySummary"+starid+".csv", delimiter=",", ndmin=2)
 				if len(olddata) != 0: ifexists = True
 
 			if ifexists:
 				# open old summary file and extract oldkeys and olddata
 				# exclude the last column - "ifpublish"
-				f = open(filepath+"frequencySummary.csv", "r")
+				f = open(filepath+"frequencySummary"+starid+".csv", "r")
 				oldkeys = f.readline().replace(" ","").replace("#","").replace("\n","")
 				oldkeys = np.array(oldkeys.split(","))#[:-1]
 				f.close()
-				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)#[:,:-1] # exclude ifpublish
+				olddata = np.loadtxt(filepath+"frequencySummary"+starid+".csv", delimiter=",", ndmin=2)#[:,:-1] # exclude ifpublish
 				# print("olddata", olddata)
 				# print("oldkeys", oldkeys)
 				add_keys = np.array(oldkeys[:-1])[~np.isin(oldkeys[:-1], keys)]
@@ -415,6 +421,6 @@ def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering
 				newdata = np.concatenate([newdata, np.zeros((np.shape(newdata)[0], 1))+1], axis=1)
 			
 			# save table
-			np.savetxt(filepath+"frequencySummary.csv", newdata, delimiter=",", fmt=fmt, header=", ".join(newkeys))
+			np.savetxt(filepath+"frequencySummary"+starid+".csv", newdata, delimiter=",", fmt=fmt, header=", ".join(newkeys))
 
 	return

@@ -16,7 +16,7 @@ import os
 __all__ = ["manualGuess", "manualFit", "manualSummarize"]
 
 def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, eps=None):
+	 lowerbound: float=5.0, upperbound: float=5.0, eps=None, starid=None):
 	'''
 	Initial guess for all peaks in [numax-lowerbound*dnu, numax+upperbound*dnu], 
 	with a user adjustable epsilon.
@@ -31,6 +31,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	upperbound: the upper boundary of the power spectrum slice, in unit of dnu.
 	eps: different from the physical epsilon. should be amid 0 and 1 and defines
 		the ridge of radial modes.
+	starid: star ID.
 
 	Output:
 	Files containing necessary outputs.
@@ -54,6 +55,8 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 	if eps!=None and (eps<0.0 or eps>1.0):
 		raise ValueError("eps should be between 0 and 1.")
+
+	starid = "_"+starid if starid != None else ""
 
 	# set up plot
 	fig = plt.figure(figsize=(12,10))
@@ -215,8 +218,8 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 				marker=markers[tmode_l[ipeak]], zorder=10)
 		c, d = ax2.get_ylim()
 		for ipeak in range(Npeaks1):
-			ax2.scatter([tmode_freq[tmode_l==1][ipeak]],[c+(d-c)*0.8], c=colors[tmode_l[ipeak]], 
-				marker=markers[tmode_l[ipeak]], zorder=10)
+			ax2.scatter([tmode_freq[tmode_l==1][ipeak]],[c+(d-c)*0.8], c=colors[tmode_l[tmode_l==1][ipeak]], 
+				marker=markers[tmode_l[tmode_l==1][ipeak]], zorder=10)
 
 		### end of visulization
 
@@ -272,7 +275,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 
 	# save plot
-	plt.savefig(filepath+"manualGuess.png")
+	plt.savefig(filepath+"manualGuess"+starid+".png")
 	plt.close()
 
 	# save a table
@@ -306,14 +309,14 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 	table = np.array([np.arange(len(mode_freq)), np.zeros(len(mode_freq))+1, 
 		mode_group, mode_l, mode_freq]).T
-	np.savetxt(filepath+"frequencyGuess.csv", table, delimiter=",", fmt=("%d","%d","%d","%d","%10.4f"), 
+	np.savetxt(filepath+"frequencyGuess"+starid+".csv", table, delimiter=",", fmt=("%d","%d","%d","%d","%10.4f"), 
 		header="mode_id, ifpeakbagging, igroup, lGuess, freqGuess")
 
 	return
 
 def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifreadfromLS: bool=False,
-	 igroup: int=None, para_guess: np.array=None):
+	 igroup: int=None, para_guess: np.array=None, starid=None):
 	'''
 	Automatic peakbagging for radial modes in [numax-5*dnu, numax+5*dnu]
 
@@ -329,6 +332,8 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		initial value, i.e. the mode_guess array passed to modefitWrapper.
 	igroup: run the specific group to enable a truly manual fit. should be used 
 		with para_guess
+	para_guess: guessed initial parameters.
+	starid: star ID.
 
 	Output:
 	Files containing necessary outputs.
@@ -346,6 +351,8 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		automode=True
 	else:
 		automode=False
+
+	starid = "_"+starid if starid != None else ""
 
 	# smooth the power spectrum
 	period, samplinginterval = dnu/30.0, np.median(freq[1:-1] - freq[0:-2])
@@ -385,13 +392,14 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 
 	return
 
-def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
+def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", starid=None):
 	'''
 	Summarize fitted mode parameters from the function autoradialFit.
 
 	Input:
 	frequencyGuessFile: input file which stores guessed resules.
 	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	starid: star ID.
 
 	Output:
 	A summary csv file located in the same directory as the frequencyGuessFile.
@@ -403,6 +411,8 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
 		raise ValueError("frequencyGuessFile does not exist.")
 	if not fittype in ["Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['Ensemble', 'LeastSquare']")
+
+	starid = "_"+starid if starid != None else ""
 
 	filepath = sep.join(frequencyGuessFile.split(sep)[:-1]) + sep
 
@@ -506,18 +516,18 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
 
 			# check if previous summary file exists
 			ifexists = False
-			if os.path.exists(filepath+"frequencySummary.csv"):
-				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)
+			if os.path.exists(filepath+"frequencySummary"+starid+".csv"):
+				olddata = np.loadtxt(filepath+"frequencySummary"+starid+".csv", delimiter=",", ndmin=2)
 				if len(olddata) != 0: ifexists = True
 
 			if ifexists:
 				# open old summary file and extract oldkeys and olddata
 				# exclude the last column - "ifpublish"
-				f = open(filepath+"frequencySummary.csv", "r")
+				f = open(filepath+"frequencySummary"+starid+".csv", "r")
 				oldkeys = f.readline().replace(" ","").replace("#","").replace("\n","")
 				oldkeys = np.array(oldkeys.split(","))#[:-1]
 				f.close()
-				olddata = np.loadtxt(filepath+"frequencySummary.csv", delimiter=",", ndmin=2)#[:,:-1] # exclude ifpublish
+				olddata = np.loadtxt(filepath+"frequencySummary"+starid+".csv", delimiter=",", ndmin=2)#[:,:-1] # exclude ifpublish
 				# print("olddata", olddata)
 				# print("oldkeys", oldkeys)
 				add_keys = np.array(oldkeys[:-1])[~np.isin(oldkeys[:-1], keys)]
@@ -570,6 +580,6 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering"):
 				newdata = np.concatenate([newdata, np.zeros((np.shape(newdata)[0], 1))+1], axis=1)
 			
 			# save table
-			np.savetxt(filepath+"frequencySummary.csv", newdata, delimiter=",", fmt=fmt, header=", ".join(newkeys))
+			np.savetxt(filepath+"frequencySummary"+starid+".csv", newdata, delimiter=",", fmt=fmt, header=", ".join(newkeys))
 
 	return
