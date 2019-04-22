@@ -376,6 +376,7 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 			print("Fitting group,", igroup)
 			ttable = table[table[:,2]==igroup]
 			mode_freq, mode_l = ttable[:,4], np.array(ttable[:,3], dtype=int)
+			if len(mode_freq) ==0: continue
 			index = np.argsort(mode_l)
 			mode_freq, mode_l = mode_freq[index], mode_l[index]
 			fitlowerbound, fitupperbound = dnu*0.1, dnu*0.1
