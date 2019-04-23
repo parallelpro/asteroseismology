@@ -366,7 +366,7 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		print("Void guessed frequency input.")
 	else:
 		groups = np.unique(table[:,2])
-		Ngroups = len(groups)
+		Ngroups = int(np.max(groups))+1
 
 		inclination, fnyq = 0.0, 283.2 # only for radial modes, LC kepler data
 
