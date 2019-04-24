@@ -182,22 +182,55 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	ifoutputsamples: bool=False, para_guess: np.array=None, fitlowerbound: float=None,
 	fitupperbound: float=None):
 	'''
-	Provide a wrapper to fit mode defined in mode_freq
+	Provide a wrapper to fit mode defined in mode_freq.
 
 	Input:
-	dnu
-	inclination: in rad
-	fnyq: nyquist frequency, in muHz
-	mode_freq: guessed mode frequencies, in muHz
-	mode_l: 0, 1, 2 or 3, should be sorted from smaller values (very important!).
-	freq: frequencies of the power spectrum, in muHz
-	power: backgroud divided power spectrum, S/N
-	powers: smoothed power, to predict amplitude
-	filepath: path to store output files
-	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"]
-	para_guess: a np.array which specifies the initial guess for parameters.
-	fitlowerbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
-	fitupperbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
+	dnu: float
+		the large separation, in unit of muHz.
+
+	inclination: float
+		the inclination angle, in rad.
+
+	fnyq: float
+		the Nyquist frequency, in muHz.
+
+	mode_freq: np.array
+		the mode frequencies intend to fit, in muHz.
+
+	mode_l: np.array
+		the mode degree corresponding to mode_freq.
+		now only support 0, 1, 2, and 3.
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	powers: np.array
+		the smoothed background divided power spectrum
+		used to predict priors.
+
+	filepath: str
+		the file path to store outputs.
+
+	Optional input:
+	fittype: str, default: "ParallelTempering"
+		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+
+	ifoutputsamples: bool, default: False
+		set True to output MCMC sampling points.
+	
+	para_guess: np.array, default: None
+		the guessed initial parameters.
+
+	fitlowerbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
+
+	fitupperbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
 
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
@@ -438,26 +471,52 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 	freq: np.array, power: np.array, powers: np.array, filepath: str, fitlowerbound: float=None,
 	fitupperbound: float=None):
 	'''
-	Provide a wrapper to fit mode defined in mode_freq
+	Provide a wrapper to perform H1 test.
 
 	Input:
-	dnu
-	inclination: in rad
-	fnyq: nyquist frequency, in muHz
-	mode_freq: guessed mode frequencies, in muHz
-	mode_l: 0, 1, 2 or 3
-	freq: frequencies of the power spectrum, in muHz
-	power: backgroud divided power spectrum, S/N
-	powers: smoothed power, to predict amplitude
-	filepath: path to store output files
-	fitlowerbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
-	fitupperbound: trim the data into [min(mode_freq)-fitlowerbound,max(mode_freq)+fitupperbound] for fit
+	dnu: float
+		the large separation, in unit of muHz.
 
+	inclination: float
+		the inclination angle, in rad.
+
+	fnyq: float
+		the Nyquist frequency, in muHz.
+
+	mode_freq: np.array
+		the mode frequencies intend to fit, in muHz.
+
+	mode_l: np.array
+		the mode degree corresponding to mode_freq.
+		now only support 0, 1, 2, and 3.
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	powers: np.array
+		the smoothed background divided power spectrum
+		used to predict priors.
+
+	filepath: str
+		the file path to store outputs.
+
+	Optional input:
+	fitlowerbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
+
+	fitupperbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
 
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
 		parameter estimation result, parameter initial guess.
 	Plots: fitting results, posterior distribution, traces.
+
 
 	'''
 

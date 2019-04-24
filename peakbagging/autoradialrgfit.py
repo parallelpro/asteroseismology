@@ -16,21 +16,44 @@ import os
 __all__ = ["autoradialGuess", "autoradialFit", "autoradialSummarize"]
 
 def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, ifeps: bool =False, teff: float=5777.0, starid=None):
+	 lowerbound: float=5.0, upperbound: float=5.0, ifeps: bool =False, teff: float=5777.0, 
+	 starid: str=None):
 	'''
 	Automatic initial guess for radial modes in [numax-5*dnu, numax+5*dnu]
 
+
 	Input:
-	freq: frequency in muHz.
-	power: background divided power spectrum (so now is s/b instead).
-	dnu: in unit of muHz.
-	numax: in unit of muHz.
-	filepath: file path to store outputs.
-	lowerbound: the lower boundary of the power spectrum slice, in unit of dnu.
-	upperbound: the upper boundary of the power spectrum slice, in unit of dnu.
-	starid: star ID.
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	dnu: float
+		the large separation, in unit of muHz.
+
+	numax: float
+		the frequency of maximum power, in unit of muHz.
+
+	filepath: str
+		the file path to store outputs.
+
+
+	Optional input:
+
+	lowerbound: float, default: 5.0
+		the lower boundary of the power spectrum slice, in unit of dnu.
+
+	upperbound: float, default: 5.0
+		the upper boundary of the power spectrum slice, in unit of dnu.
+
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
+
 	Files containing necessary outputs.
 	1. analysis plot autoradialGuess.png
 	2. table frequencyGuess.csv
@@ -221,23 +244,49 @@ def autoradialGuess(freq: np.array, power: np.array, dnu: float, numax: float, f
 
 def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifmodefit: bool=True, 
-	 ifh1test: bool=False, starid=None):
+	 ifh1test: bool=False, starid: str=None):
 	'''
-	Automatic peakbagging for radial modes in [numax-5*dnu, numax+5*dnu]
+	Peakbagging for modes mentioned in frequencyGuessFile.
+
 
 	Input:
-	freq: frequency in muHz.
-	power: background divided power spectrum (so now is s/b instead).
-	dnu: in unit of muHz.
-	numax: in unit of muHz.
-	filepath: file path to store outputs.
-	frequencyGuessFile: input file which stores guessed resules.
-	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
-	ifmodefit: if fit modes.
-	ifh1test: if perform h1 test.
-	starid: star ID.
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	dnu: float
+		the large separation, in unit of muHz.
+
+	numax: float
+		the frequency of maximum power, in unit of muHz.
+
+	filepath: str
+		the file path to store outputs.
+
+	frequencyGuessFile: str
+		the input file which stores guessed mode frequencies.
+
+
+	Optional input:
+
+	fittype: str, default: "ParallelTempering"
+		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	
+	ifmodefit: bool, default: True
+		if fit modes.
+
+	ifh1test: bool, default: False
+		if perform h1 test.
+
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
+
 	Files containing necessary outputs.
 
 	'''
@@ -281,17 +330,31 @@ def autoradialFit(freq: np.array, power: np.array, dnu: float, numax: float, fil
 		print("Void guessed frequency input.")
 	return
 
-def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", starid=None):
+def autoradialSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering",
+	 starid:str =None):
 	'''
-	Summarize fitted mode parameters from the function autoradialFit.
+	Extracted fitted mode parameters after autoradialFit and summarize to 
+	a table.
+	
 
 	Input:
-	frequencyGuessFile: input file which stores guessed resules.
-	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
-	starid: star ID.
+
+	frequencyGuessFile: str
+		the file which stores guessed resules.
+
+
+	Optional input:
+
+	fittype: str, default: "ParallelTempering"
+		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
-	A summary csv file located in the same directory as the frequencyGuessFile.
+
+	summary table frequencySummary.csv
 
 	'''
 

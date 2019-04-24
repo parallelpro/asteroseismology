@@ -12,18 +12,38 @@ def echelle(x: np.array, y: np.array, period: float,
 	Generate a z-map for echelle plotting.
 
 	Input:
-	x: frequency.
-	y: power spectrum.
-	period: delta_nu.
-	lowc: lower boundary frequency.
-	highc: higher boundary frequency.
-	type: single or replicated.
-	offset: horizontal shift in same unit of x.
+
+	x: np.array
+		the frequency.
+
+	y: np.array
+		the power spectrum.
+
+	period: float
+		the large separation.
+
+	lowc: float
+		the lower boundary frequency, in the same unit of x.
+
+	highc: float
+		the higher boundary frequency, in the same unit of x.
+
+
+	Optional input:
+
+	echelletype: str, default: "single"
+		single or replicated.
+
+	offset: float, default: 0
+		the horizontal shift in the same unit of x.
+
 
 	Output:
-	x: 1-d array.
-	y: 1-d array.
-	z: 2-d array.
+
+	x, y: 
+		two 1-d arrays.
+	z: 
+		a 2-d array.
 
 	Exemplary call:
 

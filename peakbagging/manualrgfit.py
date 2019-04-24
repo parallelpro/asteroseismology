@@ -16,24 +16,47 @@ import os
 __all__ = ["manualGuess", "manualFit", "manualSummarize"]
 
 def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, eps=None, starid=None):
+	 lowerbound: float=5.0, upperbound: float=5.0, eps=None, starid: str=None):
 	'''
-	Initial guess for all peaks in [numax-lowerbound*dnu, numax+upperbound*dnu], 
-	with a user adjustable epsilon.
+	An initial guess for all mode frequencies in the power spectrum.
+
 
 	Input:
-	freq: frequency in muHz.
-	power: background divided power spectrum (so now is s/b instead).
-	dnu: in unit of muHz.
-	numax: in unit of muHz.
-	filepath: file path to store outputs.
-	lowerbound: the lower boundary of the power spectrum slice, in unit of dnu.
-	upperbound: the upper boundary of the power spectrum slice, in unit of dnu.
-	eps: different from the physical epsilon. should be amid 0 and 1 and defines
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	dnu: float
+		the large separation, in unit of muHz.
+
+	numax: float
+		the frequency of maximum power, in unit of muHz.
+
+	filepath: str
+		the file path to store outputs.
+
+
+	Optional input:
+
+	lowerbound: float, default: 5.0
+		the lower boundary of the power spectrum slice, in unit of dnu.
+
+	upperbound: float, default: 5.0
+		the upper boundary of the power spectrum slice, in unit of dnu.
+
+	eps: float, default: None
+		different from the physical epsilon. should be amid 0 and 1 and defines
 		the ridge of radial modes.
-	starid: star ID.
+
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
+
 	Files containing necessary outputs.
 	1. analysis plot manualGuess.png
 	2. table frequencyGuess.csv
@@ -316,26 +339,54 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifreadfromLS: bool=False,
-	 igroup: int=None, para_guess: np.array=None, starid=None):
+	 igroup: int=None, para_guess: np.array=None, starid: str=None):
 	'''
-	Automatic peakbagging for radial modes in [numax-5*dnu, numax+5*dnu]
+	Peakbagging for modes mentioned in frequencyGuessFile.
+
 
 	Input:
-	freq: frequency in muHz.
-	power: background divided power spectrum (so now is s/b instead).
-	dnu: in unit of muHz.
-	numax: in unit of muHz.
-	filepath: file path to store outputs.
-	frequencyGuessFile: input file which stores guessed resules.
-	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
-	ifreadfromLS: set true to read from LeastSquare fitting results as the
+
+	freq: np.array
+		frequency in muHz.
+
+	power: np.array
+		the background divided power spectrum (so now is s/b instead).
+
+	dnu: float
+		the large separation, in unit of muHz.
+
+	numax: float
+		the frequency of maximum power, in unit of muHz.
+
+	filepath: str
+		the file path to store outputs.
+
+	frequencyGuessFile: str
+		the input file which stores guessed mode frequencies.
+
+
+	Optional input:
+
+	fittype: str, default: "ParallelTempering"
+		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	
+	ifreadfromLS: bool, default: False
+		set True to read from LeastSquare fitting results as the
 		initial value, i.e. the mode_guess array passed to modefitWrapper.
-	igroup: run the specific group to enable a truly manual fit. should be used 
-		with para_guess
-	para_guess: guessed initial parameters.
-	starid: star ID.
+
+	igroup: int, default: None
+		run the specific group to enable a truly manual fit. usually should
+		be used with the para_guess and ifreadfromLS parameters.
+
+	para_guess: np.array, default: None
+		the guessed initial parameters.
+
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
+
 	Files containing necessary outputs.
 
 	'''
@@ -393,17 +444,30 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 
 	return
 
-def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", starid=None):
+def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", starid: str=None):
 	'''
-	Summarize fitted mode parameters from the function autoradialFit.
+	Extracted fitted mode parameters after manualFit and summarize to 
+	a table.
+
 
 	Input:
-	frequencyGuessFile: input file which stores guessed resules.
-	fittype: one of ["ParallelTempering", "Ensemble", "LeastSquare"].
-	starid: star ID.
+
+	frequencyGuessFile: str
+		the file which stores guessed resules.
+
+
+	Optional input:
+
+	fittype: str, default: "ParallelTempering"
+		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
+	
+	starid: str, default: None
+		the star ID name to append after filename outputs.
+
 
 	Output:
-	A summary csv file located in the same directory as the frequencyGuessFile.
+
+	summary table frequencySummary.csv
 
 	'''
 
