@@ -284,8 +284,6 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 	# sort_mode_freq = np.sort(mode_freq)
 	for j in range(n_mode):
-		lowerbound = mode_freq[j-1] if j != 0 else mode_freq[j] - 0.01*dnu
-		upperbound = mode_freq[j+1] if j != n_mode-1 else mode_freq[j] + 0.01*dnu
 		if mode_freq[j] == np.min(mode_freq):
 			lowerbound = None
 		else:
