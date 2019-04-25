@@ -317,7 +317,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		tmode_freq = mode_freq[group_index[igroup]:group_index[igroup+1]]
 		tmode_l = mode_l[group_index[igroup]:group_index[igroup+1]]
 
-		index = np.argsort(tmode_l)
+		index = np.argsort(tmode_freq)
 		tmode_freq, tmode_l = tmode_freq[index], tmode_l[index]
 
 		mode_freq_group.append(tmode_freq)
@@ -329,6 +329,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	mode_group = np.array(mode_group, dtype=int)
 	mode_freq = np.concatenate(mode_freq_group)
 	mode_l = np.concatenate(mode_l_group)
+
 
 	table = np.array([np.arange(len(mode_freq)), np.zeros(len(mode_freq))+1, 
 		mode_group, mode_l, mode_freq]).T
@@ -417,13 +418,12 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		print("Void guessed frequency input.")
 	else:
 		groups = np.unique(table[:,2])
-		Ngroups = int(np.max(groups))+1
 
 		inclination, fnyq = 0.0, 283.2 # only for radial modes, LC kepler data
 
-		if automode: rstart, rend = 0, Ngroups
-		if not automode: rstart, rend = igroup, igroup+1
-		for igroup in range(rstart, rend): #range(1)
+		if automode: groups = np.array(groups, dtype=int)
+		if not automode: groups = np.array([igroup], dtype=int)
+		for igroup in groups:
 			print("Fitting group,", igroup)
 			ttable = table[table[:,2]==igroup]
 			mode_freq, mode_l = ttable[:,4], np.array(ttable[:,3], dtype=int)
@@ -506,6 +506,8 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", s
 				tfilepath = filepath + str(int(igroup)) + sep
 				mode_l = table[table[:,2]==igroup][:,3]
 				mode_id = table[table[:,2]==igroup][:,0]
+				index = np.argsort(mode_l)
+				mode_l, mode_id = mode_l[index], mode_id[index]
 
 				Nmodes = len(mode_l)
 				# tindex = table[:,0] == group

@@ -256,8 +256,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 	# trim data into range we use
 	# this is for plot
-	index = np.all(np.array([freq >= np.min(mode_freq)-8.0, 
-		freq <= np.max(mode_freq)+8.0]), axis=0)
+	index = np.all(np.array([freq >= np.min(mode_freq)-0.5*dnu, 
+		freq <= np.max(mode_freq)+0.5*dnu]), axis=0)
 	freq = freq[index]
 	power = power[index]
 	powers = powers[index]
@@ -401,7 +401,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		ax.plot(freq, powers, color="black", label="smooth")
 		ax.plot(freq, power_fit, color="orange", label="fit")
 		ax.legend()
-		a, b = np.min(mode_freq) - 8.0, np.max(mode_freq) + 8.0
+		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
 		index = np.intersect1d(np.where(freq > a)[0],
 			np.where(freq < b)[0] )
 		c, d = np.min(power[index]), np.max(power[index])
@@ -453,7 +453,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		ax.plot(freq, powers, color="black", label="smooth")
 		ax.plot(freq, power_fit, color="orange", label="fit")
 		ax.legend()
-		a, b = np.min(mode_freq) - 8.0, np.max(mode_freq) + 8.0
+		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
 		index = np.intersect1d(np.where(freq > a)[0],
 			np.where(freq < b)[0] )
 		c, d = np.min(power[index]), np.max(power[index])
