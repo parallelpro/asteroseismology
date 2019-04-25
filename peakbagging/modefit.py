@@ -75,10 +75,14 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	power = power[index]
 	powers = powers[index]
 
+	dfreq = np.median(freq[1:]-freq[:-1])
+	area = np.sum(powers*dfreq-1.0*dfreq)
+	lw = 2*area/np.max(powers)/np.pi if area>0 else 1.0
+
 	# Flat priors
-	centralFrequency = [mode_freq-0.4*dnu02, mode_freq+0.4*dnu02]
+	centralFrequency = [lowerbound, upperbound]
 	amplitude = [(np.max(powers)**0.5)*0.1, (np.max(powers)**0.5)*5.0]
-	linewidth = [5e-3, 3.0]#[1e-8, dnu02*0.7]
+	linewidth = [lw*0.1, lw*3.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -106,8 +110,12 @@ def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, power
 	powers = powers[index]
 	centralFrequency = mode_freq
 
+	dfreq = np.median(freq[1:]-freq[:-1])
+	area = np.sum(powers*dfreq-1.0*dfreq)
+	lw = 2*area/np.max(powers)/np.pi if area>0 else 1.0
+
 	amplitude = np.max(powers)**0.5 * 2.0
-	linewidth = 0.1
+	linewidth = lw
 
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
@@ -276,12 +284,23 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 	# sort_mode_freq = np.sort(mode_freq)
 	for j in range(n_mode):
-		# lowerbound = mode_freq[j-1] if j != 0 else mode_freq[j] - 0.01*dnu
-		# upperbound = mode_freq[j+1] if j != n_mode-1 else mode_freq[j] + 0.01*dnu
+		lowerbound = mode_freq[j-1] if j != 0 else mode_freq[j] - 0.01*dnu
+		upperbound = mode_freq[j+1] if j != n_mode-1 else mode_freq[j] + 0.01*dnu
+		if mode_freq[j] == np.min(mode_freq):
+			lowerbound = None
+		else:
+			dummy = np.sort(mode_freq[mode_freq<mode_freq[j]])
+			lowerbound = (dummy[-1]+mode_freq[j])/2.0
+		if mode_freq[j] == np.max(mode_freq):
+			upperbound = None
+		else:
+			dummy = np.sort(mode_freq[mode_freq>mode_freq[j]])
+			upperbound = (dummy[0]+mode_freq[j])/2.0
+
 		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], 
-			tfreq, tpower, tpowers, dnu, True)
+			tfreq, tpower, tpowers, dnu, True, lowerbound=lowerbound, upperbound=upperbound)
 		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], 
-			tfreq, tpower, tpowers, dnu, True)
+			tfreq, tpower, tpowers, dnu, True, lowerbound=lowerbound, upperbound=upperbound)
 		for k in range(len(para_prior2)):
 			flatPriorGuess_split.append(para_prior2[k])
 			if automode: para_guess = np.append(para_guess, para_guess2[k])
