@@ -108,8 +108,14 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 
 def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, 
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
-	if lowerbound==None: lowerbound = mode_freq - 0.01*dnu
-	if upperbound==None: upperbound = mode_freq + 0.01*dnu
+	if lowerbound==None:
+		lowerbound = mode_freq - 0.01*dnu
+	else:
+		lowerbound = max(lowerbound, mode_freq - 0.01*dnu)
+	if upperbound==None:
+		upperbound = mode_freq + 0.01*dnu
+	else:
+		upperbound = min(upperbound, mode_freq + 0.01*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	power = power[index]
