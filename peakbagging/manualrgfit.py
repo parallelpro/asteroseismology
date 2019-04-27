@@ -329,7 +329,8 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	mode_group = np.array(mode_group, dtype=int)
 	mode_freq = np.concatenate(mode_freq_group)
 	mode_l = np.concatenate(mode_l_group)
-
+	index = np.argsort(mode_l)
+	mode_group, mode_freq, mode_l = mode_group[index], mode_freq[index], mode_l[index]	
 
 	table = np.array([np.arange(len(mode_freq)), np.zeros(len(mode_freq))+1, 
 		mode_group, mode_l, mode_freq]).T
@@ -628,16 +629,16 @@ def manualSummarize(frequencyGuessFile: str, fittype: str="ParallelTempering", s
 				nrows, ncols = np.shape(newdata)
 				for j in range(0, nrows):
 					for k in range(ncols - n_add_keys , ncols):
-						tgroup, tkey = newdata[j,0], newkeys[k]
-						index1 = np.where(olddata[:,0] == tgroup)[0]
+						tid, tkey = newdata[j,2], newkeys[k]
+						index1 = np.where(olddata[:,2] == tid)[0]
 						index2 = np.where(oldkeys == tkey)[0]
 						if len(index1) != 0 and len(index2) != 0:
 							newdata[j,k] = olddata[index1[0], index2[0]]
 
 				for j in range(nrows - n_add_group , nrows):
 					for k in range(0, ncols - n_add_keys):
-						tgroup, tkey = newdata[j,0], newkeys[k]
-						index1 = np.where(olddata[:,0] == tgroup)[0]
+						tid, tkey = newdata[j,2], newkeys[k]
+						index1 = np.where(olddata[:,2] == tid)[0]
 						index2 = np.where(oldkeys == tkey)[0]
 						if len(index1) != 0 and len(index2) != 0:
 							newdata[j,k] = olddata[index1[0], index2[0]]
