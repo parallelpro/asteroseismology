@@ -69,26 +69,28 @@ def LorentzianSplittingMixtureModel(freq, modelParameters, fnyq, mode_l):
 def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu,
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
 	if lowerbound==None:
-		lowerbound = mode_freq - 0.04*dnu
+		lowerbound = mode_freq - 0.02*dnu
 	else:
-		lowerbound = max(lowerbound, mode_freq - 0.04*dnu)
+		lowerbound = max(lowerbound, mode_freq - 0.02*dnu)
 	if upperbound==None:
-		upperbound = mode_freq + 0.04*dnu
+		upperbound = mode_freq + 0.02*dnu
 	else:
-		upperbound = min(upperbound, mode_freq + 0.04*dnu)
+		upperbound = min(upperbound, mode_freq + 0.02*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
-	power = power[index]
-	powers = powers[index]
+	freq, power, powers = freq[index], power[index], powers[index]
 
+	height = np.max(powers)-1.0
+	height = height if height>0 else np.max(powers)
 	dfreq = np.median(freq[1:]-freq[:-1])
 	area = np.sum(powers*dfreq-1.0*dfreq)
-	lw = 2*area/np.max(powers)/np.pi if area>0 else 1.0
+	lw = 2.0*area/height/np.pi if area>0 else 1.0
+	amp = (height*np.pi*lw)**0.5
 
 	# Flat priors
 	centralFrequency = [lowerbound, upperbound]
-	amplitude = [(np.max(powers)**0.5)*0.1, (np.max(powers)**0.5)*5.0]
-	linewidth = [lw*0.1, lw*3.0]#[1e-8, dnu02*0.7]
+	amplitude = [amp*0.2, amp*5.0]
+	linewidth = [lw*0.2, lw*5.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -109,24 +111,27 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, 
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
 	if lowerbound==None:
-		lowerbound = mode_freq - 0.04*dnu
+		lowerbound = mode_freq - 0.02*dnu
 	else:
-		lowerbound = max(lowerbound, mode_freq - 0.04*dnu)
+		lowerbound = max(lowerbound, mode_freq - 0.02*dnu)
 	if upperbound==None:
-		upperbound = mode_freq + 0.04*dnu
+		upperbound = mode_freq + 0.02*dnu
 	else:
-		upperbound = min(upperbound, mode_freq + 0.04*dnu)
+		upperbound = min(upperbound, mode_freq + 0.02*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	power = power[index]
 	powers = powers[index]
 	centralFrequency = mode_freq
 
+	height = np.max(powers)-1.0
+	height = height if height>0 else np.max(powers)
 	dfreq = np.median(freq[1:]-freq[:-1])
 	area = np.sum(powers*dfreq-1.0*dfreq)
-	lw = 2*area/np.max(powers)/np.pi if area>0 else 1.0
+	lw = 2*area/height/np.pi if area>0 else 1.0
+	amp = (height*np.pi*lw)**0.5
 
-	amplitude = np.max(powers)**0.5 * 2.0
+	amplitude = amp
 	linewidth = lw
 
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
@@ -200,7 +205,7 @@ def lnlikelihood_m0(theta, freq, power, fnyq):
 def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.array, mode_l: np.array,
 	freq: np.array, power: np.array, powers: np.array, filepath: str, fittype: str="ParallelTempering",
 	ifoutputsamples: bool=False, para_guess: np.array=None, fitlowerbound: float=None,
-	fitupperbound: float=None):
+	fitupperbound: float=None, nsteps: int=None):
 	'''
 	Provide a wrapper to fit mode defined in mode_freq.
 
@@ -252,6 +257,9 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		trim the data into [min(mode_freq)-fitlowerbound,
 		max(mode_freq)+fitupperbound] for fit.
 
+	nsteps: int, default: 2000
+		the number of steps to iterate for mcmc run.
+
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
 		parameter estimation result, parameter initial guess.
@@ -267,8 +275,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
 	automode = True if isinstance(para_guess, type(None)) else False
-	if fitlowerbound==None: fitlowerbound=(0.122*dnu + 0.05)*0.6 # Bedding+2011 low luminosity RGB
-	if fitupperbound==None: fitupperbound=(0.122*dnu + 0.05)*0.6
+	if fitlowerbound==None: fitlowerbound=dnu*0.5
+	if fitupperbound==None: fitupperbound=dnu*0.5
 
 	# initilize
 	n_mode = len(mode_l)
@@ -294,7 +302,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	flatPriorGuess_split = []
 	if automode: para_guess = np.array([])
 
-	# sort_mode_freq = np.sort(mode_freq)
+
 	for j in range(n_mode):
 		if mode_freq[j] == np.min(mode_freq):
 			lowerbound = None
@@ -306,6 +314,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		else:
 			dummy = np.sort(mode_freq[mode_freq>mode_freq[j]])
 			upperbound = (dummy[0]+mode_freq[j])/2.0
+		# print(lowerbound, mode_freq[j], upperbound)
 
 		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], 
 			tfreq, tpower, tpowers, dnu, True, lowerbound=lowerbound, upperbound=upperbound)
@@ -318,7 +327,6 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	
 	# write guessed parameters
 	para_best = para_guess
-	np.savetxt(filepath+"guess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 	if fittype in ["ParallelTempering", "Ensemble"]:
 
@@ -344,7 +352,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			sampler.reset()
 
 			# actual iteration
-			nsteps, width = 2000, 30 # 10000, 30
+			nsteps = 2000 if nsteps == None else nsteps
+			width = 30 # 10000, 30
 			print("start iterating. nsteps:", nsteps)
 			for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost, lnlike0=lnlike)):
 				#p, lnpost, lnlike = result
@@ -382,7 +391,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			sampler.reset()
 
 			# actual iteration
-			nsteps, width = 2000, 30 # 10000, 30
+			nsteps = 2000 if nsteps == None else nsteps
+			width = 30 # 10000, 30
 			print("start iterating. nsteps:", nsteps)
 			for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost)):
 				#pos, lnpost, rstate = result
@@ -398,6 +408,9 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		if ifoutputsamples: samples.save(filepath+"samples.npy")
 		if fittype == "ParallelTempering": st = "PT"
 		if fittype == "Ensemble": st = "ES"
+
+		# save guessed parameters
+		np.savetxt(filepath+st+"guess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 		# plot triangle and save
 		tp = ["amp", "lw", "fc"]
@@ -416,18 +429,24 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 		# plot fitting result and save
 		para_plot = result[:,0]
-		power_fit = np.zeros(len(freq))
+		power_fit, power_guess = np.zeros(len(freq)), np.zeros(len(freq))
 		for j in range(0, n_mode_l0):
 			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*j], para_plot[3*j+1], 0.0, 
 								para_plot[3*j+2], inclination], fnyq, 0)
+			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*j], para_best[3*j+1], 0.0, 
+								para_best[3*j+2], inclination], fnyq, 0)
 		for j in range(0, n_mode - n_mode_l0):
 			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*n_mode_l0+4*j], para_plot[3*n_mode_l0+4*j+1], 
 							para_plot[3*n_mode_l0+4*j+2], para_plot[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*n_mode_l0+4*j], para_best[3*n_mode_l0+4*j+1], 
+							para_best[3*n_mode_l0+4*j+2], para_best[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
 		power_fit += 1.0
+		power_guess += 1.0
 		fig = plt.figure(figsize=(6,5))
 		ax = fig.add_subplot(1,1,1)
 		ax.plot(freq, power, color="lightgray", label="power")
 		ax.plot(freq, powers, color="black", label="smooth")
+		ax.plot(freq, power_guess, color="blue", label="guess")
 		ax.plot(freq, power_fit, color="orange", label="fit")
 		ax.legend()
 		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
@@ -461,25 +480,34 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		# maximize likelihood function by scipy.optimize.minimize function
 		function = lambda *arg: -lnlikelihood_m1(*arg)
 		args = (tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0)
-		result = minimize(function, para_guess, args=args, bounds=flatPriorGuess_split)
+		result = minimize(function, para_best, args=args, bounds=flatPriorGuess_split)
+
+		# save guessed parameters
+		np.savetxt(filepath+"LSguess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 		# save estimation result
 		np.savetxt(filepath+"LSsummary.txt", result.x, delimiter=",", fmt=("%0.8f"), header="parameter")
 
 		# plot fitting result and save
 		para_plot = result.x
-		power_fit = np.zeros(len(freq))
+		power_fit, power_guess = np.zeros(len(freq)), np.zeros(len(freq))
 		for j in range(0, n_mode_l0):
 			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*j], para_plot[3*j+1], 0.0, 
 								para_plot[3*j+2], inclination], fnyq, 0)
+			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*j], para_best[3*j+1], 0.0, 
+								para_best[3*j+2], inclination], fnyq, 0)
 		for j in range(0, n_mode - n_mode_l0):
 			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*n_mode_l0+4*j], para_plot[3*n_mode_l0+4*j+1], 
 							para_plot[3*n_mode_l0+4*j+2], para_plot[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*n_mode_l0+4*j], para_best[3*n_mode_l0+4*j+1], 
+							para_best[3*n_mode_l0+4*j+2], para_best[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
 		power_fit += 1.0
+		power_guess += 1.0
 		fig = plt.figure(figsize=(6,5))
 		ax = fig.add_subplot(1,1,1)
 		ax.plot(freq, power, color="lightgray", label="power")
 		ax.plot(freq, powers, color="black", label="smooth")
+		ax.plot(freq, power_guess, color="blue", label="guess")
 		ax.plot(freq, power_fit, color="orange", label="fit")
 		ax.legend()
 		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu

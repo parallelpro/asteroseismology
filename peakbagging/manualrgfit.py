@@ -317,9 +317,6 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		tmode_freq = mode_freq[group_index[igroup]:group_index[igroup+1]]
 		tmode_l = mode_l[group_index[igroup]:group_index[igroup+1]]
 
-		index = np.argsort(tmode_freq)
-		tmode_freq, tmode_l = tmode_freq[index], tmode_l[index]
-
 		mode_freq_group.append(tmode_freq)
 		mode_l_group.append(tmode_l)
 		elements = group_index[igroup+1] - group_index[igroup]
@@ -329,8 +326,9 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	mode_group = np.array(mode_group, dtype=int)
 	mode_freq = np.concatenate(mode_freq_group)
 	mode_l = np.concatenate(mode_l_group)
-	index = np.argsort(mode_l)
-	mode_group, mode_freq, mode_l = mode_group[index], mode_freq[index], mode_l[index]	
+
+	index = np.lexsort((mode_freq,mode_l))
+	mode_group, mode_freq, mode_l = mode_group[index], mode_freq[index], mode_l[index]
 
 	table = np.array([np.arange(len(mode_freq)), np.zeros(len(mode_freq))+1, 
 		mode_group, mode_l, mode_freq]).T
@@ -341,7 +339,8 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
 	 frequencyGuessFile: str, fittype: str="ParallelTempering", ifreadfromLS: bool=False,
-	 igroup: int=None, para_guess: np.array=None, starid: str=None):
+	 igroup: int=None, para_guess: np.array=None, starid: str=None, nsteps: int=None,
+	 fitlowerbound: float=None, fitupperbound: float=None):
 	'''
 	Peakbagging for modes mentioned in frequencyGuessFile.
 
@@ -386,6 +385,16 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 	starid: str, default: None
 		the star ID name to append after filename outputs.
 
+	nsteps: int, default: 2000
+		the number of steps to iterate for mcmc run.
+
+	fitlowerbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
+
+	fitupperbound: float, default: None
+		trim the data into [min(mode_freq)-fitlowerbound,
+		max(mode_freq)+fitupperbound] for fit.
 
 	Output:
 
@@ -429,21 +438,19 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 			ttable = table[table[:,2]==igroup]
 			mode_freq, mode_l = ttable[:,4], np.array(ttable[:,3], dtype=int)
 
-			index = np.argsort(mode_freq)
-			mode_freq, mode_l = mode_freq[index], mode_l[index]
-			index = np.argsort(mode_l)
+			index = np.lexsort((mode_freq,mode_l))
 			mode_freq, mode_l = mode_freq[index], mode_l[index]
 
-			fitlowerbound, fitupperbound = dnu*0.1, dnu*0.1
 			tfilepath = filepath + "{:0.0f}".format(igroup) + sep
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
 			if ifreadfromLS: para_guess = np.loadtxt(tfilepath+sep+"LSsummary.txt", delimiter=",")
-
+			if fitlowerbound==None: fitlowerbound = dnu*0.03
+			if fitupperbound==None: fitupperbound = dnu*0.03
 			# modefit
 			modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, 
 				freq, power, powers, tfilepath, fittype=fittype, 
 				para_guess=para_guess, fitlowerbound=fitlowerbound,
-				fitupperbound=fitupperbound)
+				fitupperbound=fitupperbound, nsteps=nsteps)
 			# ifh1test temporarily deleted
 
 	return
