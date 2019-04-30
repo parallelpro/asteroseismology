@@ -90,7 +90,7 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	# Flat priors
 	centralFrequency = [lowerbound, upperbound]
 	amplitude = [amp*0.2, amp*5.0]
-	linewidth = [lw*0.1, lw*10.0]#[1e-8, dnu02*0.7]
+	linewidth = [lw*0.15, lw*7.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
