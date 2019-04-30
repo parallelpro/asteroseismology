@@ -445,7 +445,7 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
 			if ifreadfromLS: para_guess = np.loadtxt(tfilepath+sep+"LSsummary.txt", delimiter=",")
 			if fitlowerbound==None: fitlowerbound = dnu*0.1 if mode_l[mode_freq == mode_freq.min()][0] != 1 else dnu*0.03
-			if fitupperbound==None: fitupperbound = dnu*0.1 if mode_l[mode_freq == mode_freq.min()][0] != 1 else dnu*0.03
+			if fitupperbound==None: fitupperbound = dnu*0.1 if mode_l[mode_freq == mode_freq.max()][0] != 1 else dnu*0.03
 			# modefit
 			modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, 
 				freq, power, powers, tfilepath, fittype=fittype, 
