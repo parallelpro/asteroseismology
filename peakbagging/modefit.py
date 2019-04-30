@@ -69,13 +69,13 @@ def LorentzianSplittingMixtureModel(freq, modelParameters, fnyq, mode_l):
 def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu,
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
 	if lowerbound==None:
-		lowerbound = mode_freq - 0.02*dnu
+		lowerbound = mode_freq - 0.04*dnu
 	else:
-		lowerbound = max(lowerbound, mode_freq - 0.02*dnu)
+		lowerbound = max(lowerbound, mode_freq - 0.04*dnu)
 	if upperbound==None:
-		upperbound = mode_freq + 0.02*dnu
+		upperbound = mode_freq + 0.04*dnu
 	else:
-		upperbound = min(upperbound, mode_freq + 0.02*dnu)
+		upperbound = min(upperbound, mode_freq + 0.04*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	freq, power, powers = freq[index], power[index], powers[index]
@@ -90,7 +90,7 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	# Flat priors
 	centralFrequency = [lowerbound, upperbound]
 	amplitude = [amp*0.2, amp*5.0]
-	linewidth = [lw*0.2, lw*5.0]#[1e-8, dnu02*0.7]
+	linewidth = [lw*0.1, lw*10.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
