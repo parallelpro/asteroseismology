@@ -250,12 +250,12 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		the guessed initial parameters.
 
 	fitlowerbound: float, default: None
-		trim the data into [min(mode_freq)-fitlowerbound,
-		max(mode_freq)+fitupperbound] for fit.
+		trim the data into [min(mode_freq)-fitlowerbound*dnu,
+		max(mode_freq)+fitupperbound*dnu] for fit.
 
 	fitupperbound: float, default: None
-		trim the data into [min(mode_freq)-fitlowerbound,
-		max(mode_freq)+fitupperbound] for fit.
+		trim the data into [min(mode_freq)-fitlowerbound*dnu,
+		max(mode_freq)+fitupperbound*dnu] for fit.
 
 	nsteps: int, default: 2000
 		the number of steps to iterate for mcmc run.
@@ -275,8 +275,11 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	if not fittype in ["ParallelTempering", "Ensemble", "LeastSquare"]:
 		raise ValueError("fittype should be one of ['ParallelTempering', 'Ensemble', 'LeastSquare']")
 	automode = True if isinstance(para_guess, type(None)) else False
-	if fitlowerbound==None: fitlowerbound=dnu*0.5
-	if fitupperbound==None: fitupperbound=dnu*0.5
+	if fitlowerbound==None: fitlowerbound=0.5
+	if fitupperbound==None: fitupperbound=0.5
+
+	fitlowerbound *= dnu
+	fitupperbound *= dnu
 
 	# initilize
 	n_mode = len(mode_l)
