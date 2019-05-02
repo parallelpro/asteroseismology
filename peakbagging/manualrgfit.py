@@ -375,7 +375,7 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		set True to read from LeastSquare fitting results as the
 		initial value, i.e. the mode_guess array passed to modefitWrapper.
 
-	igroup: int, default: None
+	igroup: int or array-like, default: None
 		run the specific group to enable a truly manual fit. usually should
 		be used with the para_guess and ifreadfromLS parameters.
 
@@ -432,7 +432,11 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 		inclination, fnyq = 0.0, 283.2 # only for radial modes, LC kepler data
 
 		if automode: groups = np.array(groups, dtype=int)
-		if not automode: groups = np.array([igroup], dtype=int)
+		if not automode: 
+			if isinstance(igroup, int): 
+				groups = np.array([igroup], dtype=int)
+			else:
+				groups = np.array(igroup, dtype=int)
 		for igroup in groups:
 			print("Fitting group,", igroup)
 			ttable = table[table[:,2]==igroup]
@@ -444,8 +448,19 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 			tfilepath = filepath + "{:0.0f}".format(igroup) + sep
 			if not os.path.exists(tfilepath): os.mkdir(tfilepath)
 			if ifreadfromLS: para_guess = np.loadtxt(tfilepath+sep+"LSsummary.txt", delimiter=",")
-			if fitlowerbound==None: fitlowerbound = 0.2 if mode_l[mode_freq == mode_freq.min()][0] != 1 else 0.05
-			if fitupperbound==None: fitupperbound = 0.2 if mode_l[mode_freq == mode_freq.max()][0] != 1 else 0.05
+			if fitlowerbound==None: 
+				minl=mode_l[mode_freq == mode_freq.min()][0]
+				if minl==0: fitlowerbound=0.08
+				if minl==1: fitlowerbound=0.03
+				if minl==2: fitlowerbound=0.20
+				if minl>=3: fitlowerbound=0.05
+			if fitupperbound==None:
+				maxl=mode_l[mode_freq == mode_freq.max()][0]
+				if maxl==0: fitupperbound=0.20
+				if maxl==1: fitupperbound=0.03
+				if maxl==2: fitupperbound=0.08
+				if maxl>=3: fitupperbound=0.05
+
 			# modefit
 			modefitWrapper(dnu, inclination, fnyq, mode_freq, mode_l, 
 				freq, power, powers, tfilepath, fittype=fittype, 

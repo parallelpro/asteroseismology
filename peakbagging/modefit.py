@@ -68,15 +68,18 @@ def LorentzianSplittingMixtureModel(freq, modelParameters, fnyq, mode_l):
 
 def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu,
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
-	if lowerbound==None:
-		lowerbound = mode_freq - 0.04*dnu
-	else:
-		lowerbound = max(lowerbound, mode_freq - 0.04*dnu)
-	if upperbound==None:
-		upperbound = mode_freq + 0.04*dnu
-	else:
-		upperbound = min(upperbound, mode_freq + 0.04*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
+	if lowerbound==None:
+		lowerbound = mode_freq - 0.5*dnu02#0.04*dnu
+	else:
+		lowerbound = max(lowerbound, mode_freq - 0.5*dnu02)
+	lowerbound = max(lowerbound, np.min(freq))
+	if upperbound==None:
+		upperbound = mode_freq + 0.5*dnu02#0.04*dnu
+	else:
+		upperbound = min(upperbound, mode_freq + 0.5*dnu02)
+	upperbound = min(upperbound, np.max(freq))
+
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	freq, power, powers = freq[index], power[index], powers[index]
 
@@ -90,7 +93,7 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	# Flat priors
 	centralFrequency = [lowerbound, upperbound]
 	amplitude = [amp*0.2, amp*5.0]
-	linewidth = [lw*0.15, lw*7.0]#[1e-8, dnu02*0.7]
+	linewidth = [lw*0.2, lw*5.0]#[1e-8, dnu02*0.7]
 	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
@@ -110,15 +113,18 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 
 def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu, 
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
-	if lowerbound==None:
-		lowerbound = mode_freq - 0.02*dnu
-	else:
-		lowerbound = max(lowerbound, mode_freq - 0.02*dnu)
-	if upperbound==None:
-		upperbound = mode_freq + 0.02*dnu
-	else:
-		upperbound = min(upperbound, mode_freq + 0.02*dnu)
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
+	if lowerbound==None:
+		lowerbound = mode_freq - 0.5*dnu02#0.04*dnu
+	else:
+		lowerbound = max(lowerbound, mode_freq - 0.5*dnu02)
+	lowerbound = max(lowerbound, np.min(freq))
+	if upperbound==None:
+		upperbound = mode_freq + 0.5*dnu02#0.04*dnu
+	else:
+		upperbound = min(upperbound, mode_freq + 0.5*dnu02)
+	upperbound = min(upperbound, np.max(freq))
+
 	index = np.intersect1d(np.where(freq > lowerbound)[0],np.where(freq < upperbound)[0])
 	power = power[index]
 	powers = powers[index]
@@ -329,7 +335,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 	
 	# write guessed parameters
-	para_best = para_guess
+	para_guess = para_guess
 
 	if fittype in ["ParallelTempering", "Ensemble"]:
 
@@ -339,7 +345,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			ndim, nwalkers, ntemps = n_mode_l0 * 3 + (n_mode - n_mode_l0 ) * 4, 100, 20
 			print("enabling ParallelTempering sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
-			pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
+			pos0 = [[para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 			loglargs = [tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0]
 			logpargs = [n_mode, n_mode_l0, flatPriorGuess_split]
 			sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m1, lnprior_m1, loglargs=loglargs, logpargs=logpargs)
@@ -379,7 +385,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			ndim, nwalkers = n_mode_l0 * 3 + (n_mode - n_mode_l0 ) * 4, 100
 			print("enabling Ensemble sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers)
-			pos0 = [para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
+			pos0 = [para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
 			args = [n_mode, n_mode_l0, flatPriorGuess_split, tfreq, tpower, inclination, fnyq, mode_l]
 			sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpost_m1, args=args)
 
@@ -413,7 +419,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		if fittype == "Ensemble": st = "ES"
 
 		# save guessed parameters
-		np.savetxt(filepath+st+"guess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
+		np.savetxt(filepath+st+"guess.txt", para_guess, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 		# plot triangle and save
 		tp = ["amp", "lw", "fc"]
@@ -421,7 +427,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		tp = ["amp", "lw", "fs", "fc"]
 		para2 = [tp[k]+str(j) for j in range(n_mode_l0, n_mode) for k in range(4)]
 		para = para1 + para2
-		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_best)
+		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_guess)
 		fig.savefig(filepath+st+"triangle.png")
 		plt.close()
 
@@ -429,40 +435,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		result = np.array(list(map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
 			zip(*np.percentile(samples, [16, 50, 84],axis=0)))))
 		np.savetxt(filepath+st+"summary.txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
-
-		# plot fitting result and save
-		para_plot = result[:,0]
-		power_fit, power_guess = np.zeros(len(freq)), np.zeros(len(freq))
-		for j in range(0, n_mode_l0):
-			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*j], para_plot[3*j+1], 0.0, 
-								para_plot[3*j+2], inclination], fnyq, 0)
-			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*j], para_best[3*j+1], 0.0, 
-								para_best[3*j+2], inclination], fnyq, 0)
-		for j in range(0, n_mode - n_mode_l0):
-			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*n_mode_l0+4*j], para_plot[3*n_mode_l0+4*j+1], 
-							para_plot[3*n_mode_l0+4*j+2], para_plot[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*n_mode_l0+4*j], para_best[3*n_mode_l0+4*j+1], 
-							para_best[3*n_mode_l0+4*j+2], para_best[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-		power_fit += 1.0
-		power_guess += 1.0
-		fig = plt.figure(figsize=(6,5))
-		ax = fig.add_subplot(1,1,1)
-		ax.plot(freq, power, color="lightgray", label="power")
-		ax.plot(freq, powers, color="black", label="smooth")
-		ax.plot(freq, power_guess, color="blue", label="guess")
-		ax.plot(freq, power_fit, color="orange", label="fit")
-		ax.legend()
-		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
-		index = np.intersect1d(np.where(freq > a)[0],
-			np.where(freq < b)[0] )
-		c, d = np.min(power[index]), np.max(power[index])
-		color = ["blue", "red", "green", "purple"]
-		marker = ["o", "^", "s", "v"]
-		for j in range(n_mode):
-			ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
-		ax.axis([a, b, c, d])
-		plt.savefig(filepath+st+"fit.png")
-		plt.close()
+		para_fit = result[:,0]
 
 		# save mean acceptance rate
 		acceptance_fraction = np.array([np.mean(sampler.acceptance_fraction)])
@@ -473,57 +446,76 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		fig = plt.figure(figsize=(5,ndim*3))
 		for i in range(ndim):
 			ax1=fig.add_subplot(ndim,1,i+1)
-			ax1.plot(np.arange(samples.shape[0]), samples[:,i], color="black", lw=1, zorder=1)
+			evol=samples[:,i]
+			Npoints=samples.shape[0]
+			ax1.plot(np.arange(Npoints)/Npoints, evol, color="gray", lw=1, zorder=1)
+			Nseries=int(len(evol)/15.0)
+			evol_median=np.array([np.median(evol[i*Nseries:(i+1)*Nseries]) for i in range(0,15)])
+			evol_std=np.array([np.std(evol[i*Nseries:(i+1)*Nseries]) for i in range(0,15)])
+			evol_x=np.array([np.median(np.arange(Npoints)[i*Nseries:(i+1)*Nseries]/Npoints) for i in range(0,15)])
+			ax1.errorbar(evol_x, evol_median, yerr=evol_std, color="C0", ecolor="C0", capsize=5)
 			ax1.set_ylabel(para[i])
+		plt.tight_layout()
 		plt.savefig(filepath+st+'traces.png')
 		plt.close()
 
 	if fittype == "LeastSquare":
 		
+		st = "LS"
 		# maximize likelihood function by scipy.optimize.minimize function
 		function = lambda *arg: -lnlikelihood_m1(*arg)
 		args = (tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0)
-		result = minimize(function, para_best, args=args, bounds=flatPriorGuess_split)
+		result = minimize(function, para_guess, args=args, bounds=flatPriorGuess_split)
 
 		# save guessed parameters
-		np.savetxt(filepath+"LSguess.txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
+		np.savetxt(filepath+st+"guess.txt", para_guess, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 		# save estimation result
-		np.savetxt(filepath+"LSsummary.txt", result.x, delimiter=",", fmt=("%0.8f"), header="parameter")
+		np.savetxt(filepath+st+"summary.txt", result.x, delimiter=",", fmt=("%0.8f"), header="parameter")
+		para_fit = result.x
 
-		# plot fitting result and save
-		para_plot = result.x
-		power_fit, power_guess = np.zeros(len(freq)), np.zeros(len(freq))
-		for j in range(0, n_mode_l0):
-			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*j], para_plot[3*j+1], 0.0, 
-								para_plot[3*j+2], inclination], fnyq, 0)
-			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*j], para_best[3*j+1], 0.0, 
-								para_best[3*j+2], inclination], fnyq, 0)
-		for j in range(0, n_mode - n_mode_l0):
-			power_fit += LorentzianSplittingMixtureModel(freq, [para_plot[3*n_mode_l0+4*j], para_plot[3*n_mode_l0+4*j+1], 
-							para_plot[3*n_mode_l0+4*j+2], para_plot[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-			power_guess += LorentzianSplittingMixtureModel(freq, [para_best[3*n_mode_l0+4*j], para_best[3*n_mode_l0+4*j+1], 
-							para_best[3*n_mode_l0+4*j+2], para_best[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
-		power_fit += 1.0
-		power_guess += 1.0
-		fig = plt.figure(figsize=(6,5))
-		ax = fig.add_subplot(1,1,1)
-		ax.plot(freq, power, color="lightgray", label="power")
-		ax.plot(freq, powers, color="black", label="smooth")
-		ax.plot(freq, power_guess, color="blue", label="guess")
-		ax.plot(freq, power_fit, color="orange", label="fit")
-		ax.legend()
-		a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
-		index = np.intersect1d(np.where(freq > a)[0],
-			np.where(freq < b)[0] )
-		c, d = np.min(power[index]), np.max(power[index])
-		color = ["blue", "red", "green", "purple"]
-		marker = ["o", "^", "s", "v"]
-		for j in range(n_mode):
-			ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
-		ax.axis([a, b, c, d])
-		plt.savefig(filepath+"LSfit.png")
-		plt.close()
+
+	# plot fitting results and save
+	power_fit, power_guess = np.zeros(len(freq)), np.zeros(len(freq))
+	for j in range(0, n_mode_l0):
+		power_fit += LorentzianSplittingMixtureModel(freq, [para_fit[3*j], para_fit[3*j+1], 0.0, 
+							para_fit[3*j+2], inclination], fnyq, 0)
+		power_guess += LorentzianSplittingMixtureModel(freq, [para_guess[3*j], para_guess[3*j+1], 0.0, 
+							para_guess[3*j+2], inclination], fnyq, 0)
+	for j in range(0, n_mode - n_mode_l0):
+		power_fit += LorentzianSplittingMixtureModel(freq, [para_fit[3*n_mode_l0+4*j], para_fit[3*n_mode_l0+4*j+1], 
+						para_fit[3*n_mode_l0+4*j+2], para_fit[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+		power_guess += LorentzianSplittingMixtureModel(freq, [para_guess[3*n_mode_l0+4*j], para_guess[3*n_mode_l0+4*j+1], 
+						para_guess[3*n_mode_l0+4*j+2], para_guess[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+	power_fit += 1.0
+	power_guess += 1.0
+	fig = plt.figure(figsize=(6,5))
+	ax = fig.add_subplot(1,1,1)
+	ax.plot(freq, power, color="lightgray", label="power")
+	ax.plot(freq, powers, color="black", label="smooth")
+	ax.plot(freq, power_guess, color="blue", label="guess")
+	ax.plot(freq, power_fit, color="orange", label="fit")
+	ax.legend()
+	a, b = np.min(mode_freq) - 0.5*dnu, np.max(mode_freq) + 0.5*dnu
+	index = np.intersect1d(np.where(freq > a)[0], np.where(freq < b)[0])
+	c, d = np.min(power[index]), np.max(power[index])
+	color = ["blue", "red", "green", "purple"]
+	marker = ["o", "^", "s", "v"]
+	for j in range(n_mode):
+		ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
+		if j<n_mode_l0: index=3*j+2
+		if j>=n_mode_l0: index=3*n_mode_l0+4*(j-n_mode_l0)+3
+		# print(j,flatPriorGuess_split[index]-mode_freq[j])
+		# print(np.abs(flatPriorGuess_split[index]-mode_freq[j]))
+		ax.errorbar([mode_freq[j]],[c+(d-c)*0.8], ecolor=color[mode_l[j]],
+			 xerr=[[np.abs(flatPriorGuess_split[index][0]-mode_freq[j])],
+			 [np.abs(flatPriorGuess_split[index][1]-mode_freq[j])]], capsize=5)
+	ax.axis([a, b, c, d])
+	ax.axvline(np.min(mode_freq)-fitlowerbound, linestyle="--", color="gray")
+	ax.axvline(np.max(mode_freq)+fitupperbound, linestyle="--", color="gray")
+	plt.savefig(filepath+st+"fit.png")
+	plt.close()
+
 
 	return
 
@@ -610,13 +602,13 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 		# model 0 - nothing but a straight line
 
 		# write guessed parameters
-		para_best = np.array([tpower.mean()])
-		np.savetxt(filepath+"guess_h1_"+iden+".txt", para_best, delimiter=",", fmt=("%0.8f"), header="para_guess")
+		para_guess = np.array([tpower.mean()])
+		np.savetxt(filepath+"guess_h1_"+iden+".txt", para_guess, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 		# run mcmc with pt sampler
 		ndim, nwalkers, ntemps = 1, 100, 20
 		print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
-		pos0 = [[para_best + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
+		pos0 = [[para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
 		loglargs = [tfreq, tpower, fnyq]
 		logpargs = [tpower]
 		sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m0, lnprior_m0, loglargs=loglargs, logpargs=logpargs)
@@ -651,7 +643,7 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 
 		# plot triangle and save
 		para = ["W"]
-		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_best)
+		fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_guess)
 		fig.savefig(filepath+"triangle_h1_"+iden+".png")
 		plt.close()
 
@@ -661,8 +653,8 @@ def h1testWrapper(dnu: float, fnyq: float, mode_freq: np.array, mode_l: np.array
 		np.savetxt(filepath+"summary_h1_"+iden+".txt", result, delimiter=",", fmt=("%0.8f", "%0.8f", "%0.8f"), header="parameter, upper uncertainty, lower uncertainty")
 
 		# plot fitting result and save
-		para_plot = result[:,0]
-		power_fit = np.zeros(len(freq)) + para_plot[0]
+		para_fit = result[:,0]
+		power_fit = np.zeros(len(freq)) + para_fit[0]
 		fig = plt.figure(figsize=(6,5))
 		ax = fig.add_subplot(1,1,1)
 		ax.plot(freq, power, color="lightgray", label="power")
