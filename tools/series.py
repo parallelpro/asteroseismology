@@ -4,7 +4,8 @@
 
 import numpy as np
 
-__all__ = ["a_correlate", "c_correlate", "smoothWrapper", "gaussian", "lorentzian"]
+__all__ = ["a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
+		"lorentzian", "medianFilter"]
 
 def a_correlate(x: np.array, y: np.array): 
 	'''
@@ -172,3 +173,16 @@ def smooth(x, window_len = 11, window = "hanning"):
 	y = np.convolve(w/w.sum(),s,mode="same")
 	return y
 
+def medianFilter(x, y, period, yerr=None):
+	if yerr==None: iferror=False
+	binsize = np.median(x[1:-1]-x[0:-2])
+	kernelsize = int(period/binsize)
+	from scipy.signal import medfilt
+	yf = medfilt(y,kernel_size=kernelsize)
+	ynew = y/yf #y-yf
+	if iferror: yerrnew = yerr/yf
+
+	if iferror:
+		return ynew, yerrnew
+	else:
+		return ynew

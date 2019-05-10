@@ -399,7 +399,7 @@ def manualFit(freq: np.array, power: np.array, dnu: float, numax: float, filepat
 	Output:
 
 	Files containing necessary outputs.
-
+ 
 	'''
 
 	# check
