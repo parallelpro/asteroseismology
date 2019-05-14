@@ -3,9 +3,11 @@
 
 
 import numpy as np
+from astropy.stats import LombScargle
+
 
 __all__ = ["a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
-		"lorentzian", "medianFilter"]
+		"lorentzian", "medianFilter", "psd"]
 
 def a_correlate(x: np.array, y: np.array): 
 	'''
@@ -186,3 +188,40 @@ def medianFilter(x, y, period, yerr=None):
 		return ynew, yerrnew
 	else:
 		return ynew
+
+def psd(time_d, f):
+	"""
+	Calculate the power spectrum density for a discrete time series.
+	https://en.wikipedia.org/wiki/Spectral_density
+
+	Input:
+	time_d: time in day
+	f: relative flux
+
+
+	Output:
+	freq: frequency in muHz
+	psd: psd in [flux]^2/muHz
+
+	"""
+
+	time_d, f = time_d[index], f[index]
+	# f=(f-1)*1e6
+
+	Ntime = len(time_d)
+	time_s = time_d*24.0*3600.0
+	dt_d = np.median(time_d[1:]-time_d[:-1]) # day
+	dt_s = dt_d*24.0*3600.0
+	fs_hz = 1.0/dt_s
+	fs_muhz = fs_hz * 1e6
+	tobs_s = dt_s*len(time_s)
+
+	fnyq_muhz = 0.5*fs_muhz
+
+	Nfreq = int(len(time_d)/2.0+1.0)
+	freq_hz = np.linspace(fnyq_muhz/1e6/Nfreq, fnyq_muhz/1e6, Nfreq)
+	freq_muhz = freq_hz*1e6
+	power = LombScargle(time_s, f).power(freq_hz,normalization='psd')
+	psd = power*2*dt_s*1e-6
+
+	return freq_muhz, psd
