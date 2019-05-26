@@ -189,39 +189,64 @@ def medianFilter(x, y, period, yerr=None):
 	else:
 		return ynew
 
-def psd(time_d, f):
+def psd(x, y, oversampling=1, ):
 	"""
 	Calculate the power spectrum density for a discrete time series.
 	https://en.wikipedia.org/wiki/Spectral_density
 
+
 	Input:
-	time_d: time in day
-	f: relative flux
+	x: np.array
+		The time.
+
+	y: np.array
+		The flux.
+
+
+	Optional input:
+	oversampling: float, default: 1
+		The oversampling factor to control the frequency grid.
+		The larger the number, the denser the grid.
 
 
 	Output:
-	freq: frequency in muHz
-	psd: psd in [flux]^2/muHz
+	freq: np.array
+		The frequency, in unit of [x]^-1.
+
+	psd: np.array
+		The power spectrum density, in unit of [y]^2/[x].
+		https://en.wikipedia.org/wiki/Spectral_density
+
+
+	Examples:
+	>>> ts = np.load("flux.npy")
+	>>> t = ts["time_d"]   # the time in day
+	>>> f = ts["flux_mf"]   # the relative flux fluctuated around 1
+	>>> f = (f-1)*1e6   # transform to parts per million
+
+	>>> freq, psd = se.psd(t, f)
+	>>> freq = freq/(24*3600)*1e6   # c/d to muHz
+	>>> psd = psd*(24*3600)*1e-6   # ppm^2/(c/d) to ppm^2/muHz
 
 	"""
 
-	time_d, f = time_d[index], f[index]
-	# f=(f-1)*1e6
 
-	Ntime = len(time_d)
-	time_s = time_d*24.0*3600.0
-	dt_d = np.median(time_d[1:]-time_d[:-1]) # day
-	dt_s = dt_d*24.0*3600.0
-	fs_hz = 1.0/dt_s
-	fs_muhz = fs_hz * 1e6
-	tobs_s = dt_s*len(time_s)
+	Nx = len(x)
+	dx = np.median(x[1:]-x[:-1]) 
+	fs = 1.0/dx
+	Tobs = dx*len(x)
+	fnyq = 0.5*fs
+	dfreq = fs/Nx
 
-	fnyq_muhz = 0.5*fs_muhz
+	freq = np.arange(dfreq, fnyq, dfreq/oversampling)
+	power = LombScargle(x, y).power(freq, normalization='psd')
+	
+	# factor 2 comes from a crude normalization 
+	# according to Parsevel's theorem
+	psd = power*2*dx
 
-	Nfreq = int(len(time_d)/2.0+1.0)
-	freq_hz = np.linspace(fnyq_muhz/1e6/Nfreq, fnyq_muhz/1e6, Nfreq)
-	freq_muhz = freq_hz*1e6
-	power = LombScargle(time_s, f).power(freq_hz,normalization='psd')
-	psd = power*2*dt_s*1e-6
+	return freq, psd
 
-	return freq_muhz, psd
+
+
+

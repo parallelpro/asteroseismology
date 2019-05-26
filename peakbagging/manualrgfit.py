@@ -152,7 +152,7 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	freqc[freqc < 0.0] += 2.0*dnu
 
 	index = np.argsort(freqc)
-	freqc, powerc, xtemplate = freqc[index], powerc[index], xtemplate[index]
+	freqc, powerc = freqc[index], powerc[index]
 	ytemplate = ytemplate[index]
 	powerc = smoothWrapper(freqc, powerc, 0.02*dnu, "bartlett")
 	powerc = powerc/np.max(powerc)
