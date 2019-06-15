@@ -66,6 +66,19 @@ def LorentzianSplittingMixtureModel(freq, modelParameters, fnyq, mode_l):
 
 	return power
 
+def SincModel(freq, modelParameters, fnyq, resolution):
+	height = modelParameters[0]
+	centralFrequency = modelParameters[1]
+
+	sincFunctionArgument = (np.pi / 2.0) * freq / fnyq
+	responseFunction = (np.sin(sincFunctionArgument) / sincFunctionArgument)**2.0
+
+	unresolvedArgument = np.pi * (freq - centralFrequency) / resolution
+	power = height * (np.sin(unresolvedArgument) / unresolvedArgument)**2.0
+	power *= responseFunction;
+
+	return power
+
 def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powers, dnu,
 	ifReturnSplitModelPrior = False, lowerbound=None, upperbound=None):
 	dnu02 = 0.122*dnu + 0.05 # Bedding+2011 low luminosity RGB
@@ -94,20 +107,13 @@ def GuessLorentzianModelPriorForPeakbagging(mode_freq, mode_l, freq, power, powe
 	centralFrequency = [lowerbound, upperbound]
 	amplitude = [amp*0.2, amp*5.0]
 	linewidth = [lw*0.2, lw*5.0]#[1e-8, dnu02*0.7]
-	prior1 = np.array([amplitude, linewidth, centralFrequency])
 
 	if ifReturnSplitModelPrior:
-		# Flat decaying
-		#projectedSplittingFrequency = [0.0, 3.0, 0.5]
-
-		# Flat priors
 		projectedSplittingFrequency = [0.0, 12.0]
 		prior2 = np.array([amplitude, linewidth, projectedSplittingFrequency, centralFrequency])
-		if mode_l >= 1:
-			return prior1, prior2
-		else:
-			return prior1, prior1
+		return prior2
 	else:
+		prior1 = np.array([amplitude, linewidth, centralFrequency])
 		return prior1
 
 
@@ -134,28 +140,24 @@ def GuessBestLorentzianModelForPeakbagging(mode_freq, mode_l, freq, power, power
 	height = height if height>0 else np.max(powers)
 	dfreq = np.median(freq[1:]-freq[:-1])
 	area = np.sum(powers*dfreq-1.0*dfreq)
-	lw = 2*area/height/np.pi if area>0 else 1.0
+	lw = 2.0*area/height/np.pi if area>0 else 1.0
 	amp = (height*np.pi*lw)**0.5
 
 	amplitude = amp
 	linewidth = lw
 
-	prior1 = np.array([amplitude, linewidth, centralFrequency])
-
 	if ifReturnSplitModelPrior:
 		projectedSplittingFrequency = 0.1
 		prior2 = np.array([amplitude, linewidth, projectedSplittingFrequency, centralFrequency])
-		if mode_l >= 1:
-			return prior1, prior2
-		else:
-			return prior1, prior1
+		return prior2
 	else:
+		prior1 = np.array([amplitude, linewidth, centralFrequency])
 		return prior1
 
-def lnprior_m1(theta, n_mode, n_mode_l0, flatPriorGuess_split):
+def lnprior_m1(theta, n_mode, n_mode_l0, flatPriors):
 	pointer = True
 	for j in range(0, 3*n_mode_l0 + (n_mode - n_mode_l0)*4):
-		if not flatPriorGuess_split[j][0] <= theta[j] <= flatPriorGuess_split[j][1]:
+		if not flatPriors[j][0] <= theta[j] <= flatPriors[j][1]:
 			pointer = False
 	if pointer == True:
 		if n_mode - n_mode_l0 > 0:
@@ -171,29 +173,35 @@ def lnprior_m1(theta, n_mode, n_mode_l0, flatPriorGuess_split):
 		lnfspriorbase = 0.0
 		for k in range(0, 3*n_mode_l0 + (n_mode - n_mode_l0)*4):
 			if not k in 3*n_mode_l0 + 4*np.arange(0,n_mode - n_mode_l0) + 2:
-				lnfspriorbase = np.log(1.0/(flatPriorGuess_split[j][1] - flatPriorGuess_split[j][0]))
+				lnfspriorbase = np.log(1.0/(flatPriors[j][1] - flatPriors[j][0]))
 		return lnfspriorbase + lnfsprior
 	else:
 		return -np.inf
 
-def lnlikelihood_m1(theta, freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0):
+def lnlikelihood_m1(theta, freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0, ifresolved):
 	model = np.zeros(len(freq))
 	for j in range(0, n_mode_l0):
-		model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
+		if ifresolved[j]:
+			model += LorentzianSplittingMixtureModel(freq, [theta[3*j], theta[3*j+1], 0.0, 
 						theta[3*j+2], inclination], fnyq, 0)
+		else:
+			model += SincModel(freq, [theta[3*j], theta[3*j+2]], fnyq, resolution)
 	for j in range(0, n_mode - n_mode_l0):
-		model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
+		if ifresolved[j]:
+			model += LorentzianSplittingMixtureModel(freq, [theta[3*n_mode_l0+4*j], theta[3*n_mode_l0+4*j+1], 
 						theta[3*n_mode_l0+4*j+2], theta[3*n_mode_l0+4*j+3], inclination], fnyq, mode_l[n_mode_l0+j])
+		else:
+			model += SincModel(freq, [theta[3*j], theta[3*j+2]], fnyq, resolution)
 	model += 1.0
 	return -np.sum(np.log(model) + power/model)
 
 
-def lnpost_m1(theta, n_mode, n_mode_l0, flatPriorGuess_split, freq, power, inclination, fnyq, mode_l):
-	lp = lnprior_m1(theta, n_mode, n_mode_l0, flatPriorGuess_split)
+def lnpost_m1(theta, n_mode, n_mode_l0, flatPriors, freq, power, inclination, fnyq, mode_l, ifresolved):
+	lp = lnprior_m1(theta, n_mode, n_mode_l0, flatPriors)
 	if not np.isfinite(lp):
 		return -np.inf
 	else:
-		return lp + lnlikelihood_m1(theta, freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0)
+		return lp + lnlikelihood_m1(theta, freq, power, inclination, fnyq, mode_l, n_mode, n_mode_l0, ifresolved)
 
 def lnprior_m0(theta, tpower):
 	if tpower.min() <= theta[0] <= tpower.max():
@@ -211,7 +219,7 @@ def lnlikelihood_m0(theta, freq, power, fnyq):
 def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.array, mode_l: np.array,
 	freq: np.array, power: np.array, powers: np.array, filepath: str, fittype: str="ParallelTempering",
 	ifoutputsamples: bool=False, para_guess: np.array=None, fitlowerbound: float=None,
-	fitupperbound: float=None, nsteps: int=None):
+	fitupperbound: float=None, nsteps: int=None, ifresolved: np.array=None, resolution: float=None):
 	'''
 	Provide a wrapper to fit mode defined in mode_freq.
 
@@ -266,6 +274,17 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	nsteps: int, default: 2000
 		the number of steps to iterate for mcmc run.
 
+	ifresolved: bool, default: True
+		whether the modes are resolved. pass a 1-d array (len(mode_freq),)
+		containing True/False.
+
+	resolution: float, default: None
+		the frequency spectra resolution. must be set when passing values
+		from ``ifresolved''.
+
+
+	freqres:
+
 	Output:
 	Data: acceptance fraction, bayesian evidence, 
 		parameter estimation result, parameter initial guess.
@@ -283,6 +302,12 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	automode = True if isinstance(para_guess, type(None)) else False
 	if fitlowerbound==None: fitlowerbound=0.5
 	if fitupperbound==None: fitupperbound=0.5
+	if ifresolved==None: 
+		ifresolved=np.array(np.zeros(len(mode_freq))+1, dtype=bool)
+		if resolution==None:
+			raise ValueError("Resolution not set.")
+	
+
 
 	fitlowerbound *= dnu
 	fitupperbound *= dnu
@@ -308,7 +333,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 
 	# defining likelihood and prior
 	# model 1 - splitting model
-	flatPriorGuess_split = []
+	flatPriors = []
 	if automode: para_guess = np.array([])
 
 
@@ -325,13 +350,14 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			upperbound = (dummy[0]+mode_freq[j])/2.0
 		# print(lowerbound, mode_freq[j], upperbound)
 
-		para_prior1, para_prior2 = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], 
-			tfreq, tpower, tpowers, dnu, True, lowerbound=lowerbound, upperbound=upperbound)
-		para_guess1, para_guess2 = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], 
-			tfreq, tpower, tpowers, dnu, True, lowerbound=lowerbound, upperbound=upperbound)
-		for k in range(len(para_prior2)):
-			flatPriorGuess_split.append(para_prior2[k])
-			if automode: para_guess = np.append(para_guess, para_guess2[k])
+		ifsplit = True if mode_l[j]>0 else False
+		prior = GuessLorentzianModelPriorForPeakbagging(mode_freq[j], mode_l[j], 
+			tfreq, tpower, tpowers, dnu, ifsplit, lowerbound=lowerbound, upperbound=upperbound)
+		guess = GuessBestLorentzianModelForPeakbagging(mode_freq[j], mode_l[j], 
+			tfreq, tpower, tpowers, dnu, ifsplit, lowerbound=lowerbound, upperbound=upperbound)
+		for k in range(len(prior)):
+			flatPriors.append(prior[k])
+			if automode: para_guess = np.append(para_guess, guess[k])
 
 	
 	# write guessed parameters
@@ -346,8 +372,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			print("enabling ParallelTempering sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers, ", ntemps: ", ntemps)
 			pos0 = [[para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)] for k in range(ntemps)]
-			loglargs = [tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0]
-			logpargs = [n_mode, n_mode_l0, flatPriorGuess_split]
+			loglargs = [tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0, ifresolved]
+			logpargs = [n_mode, n_mode_l0, flatPriors]
 			sampler = emcee.PTSampler(ntemps, nwalkers, ndim, lnlikelihood_m1, lnprior_m1, loglargs=loglargs, logpargs=logpargs)
 
 			# burn-in
@@ -386,7 +412,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			print("enabling Ensemble sampler.")
 			print("ndimension: ", ndim, ", nwalkers: ", nwalkers)
 			pos0 = [para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
-			args = [n_mode, n_mode_l0, flatPriorGuess_split, tfreq, tpower, inclination, fnyq, mode_l]
+			args = [n_mode, n_mode_l0, flatPriors, tfreq, tpower, inclination, fnyq, mode_l, ifresolved]
 			sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpost_m1, args=args)
 
 			# burn-in
@@ -464,8 +490,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		st = "LS"
 		# maximize likelihood function by scipy.optimize.minimize function
 		function = lambda *arg: -lnlikelihood_m1(*arg)
-		args = (tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0)
-		result = minimize(function, para_guess, args=args, bounds=flatPriorGuess_split)
+		args = (tfreq, tpower, inclination, fnyq, mode_l, n_mode, n_mode_l0, ifresolved)
+		result = minimize(function, para_guess, args=args, bounds=flatPriors)
 
 		# save guessed parameters
 		np.savetxt(filepath+st+"guess.txt", para_guess, delimiter=",", fmt=("%0.8f"), header="para_guess")
@@ -505,11 +531,11 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		ax.scatter([mode_freq[j]],[c+(d-c)*0.8], c=color[mode_l[j]], marker=marker[mode_l[j]])
 		if j<n_mode_l0: index=3*j+2
 		if j>=n_mode_l0: index=3*n_mode_l0+4*(j-n_mode_l0)+3
-		# print(j,flatPriorGuess_split[index]-mode_freq[j])
-		# print(np.abs(flatPriorGuess_split[index]-mode_freq[j]))
+		# print(j,flatPriors[index]-mode_freq[j])
+		# print(np.abs(flatPriors[index]-mode_freq[j]))
 		ax.errorbar([mode_freq[j]],[c+(d-c)*0.8], ecolor=color[mode_l[j]],
-			 xerr=[[np.abs(flatPriorGuess_split[index][0]-mode_freq[j])],
-			 [np.abs(flatPriorGuess_split[index][1]-mode_freq[j])]], capsize=5)
+			 xerr=[[np.abs(flatPriors[index][0]-mode_freq[j])],
+			 [np.abs(flatPriors[index][1]-mode_freq[j])]], capsize=5)
 	ax.axis([a, b, c, d])
 	ax.axvline(np.min(mode_freq)-fitlowerbound, linestyle="--", color="gray")
 	ax.axvline(np.max(mode_freq)+fitupperbound, linestyle="--", color="gray")

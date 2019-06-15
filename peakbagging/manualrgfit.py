@@ -16,7 +16,8 @@ import os
 __all__ = ["manualGuess", "manualFit", "manualSummarize"]
 
 def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filepath: str,
-	 lowerbound: float=5.0, upperbound: float=5.0, eps=None, starid: str=None):
+	 lowerbound: float=5.0, upperbound: float=5.0, eps=None, starid: str=None,
+	 height: float=2.0, prominence: float=1.5):
 	'''
 	An initial guess for all mode frequencies in the power spectrum.
 
@@ -53,6 +54,12 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 	starid: str, default: None
 		the star ID name to append after filename outputs.
+
+	height: float, default: 2.0
+		the minimum height for a peak to be recognised, in unit of power.
+
+	prominence: float, default: 1.5
+		the minimum prominence for a peak to be recognised, in unit of power.
 
 
 	Output:
@@ -153,7 +160,6 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 
 	index = np.argsort(freqc)
 	freqc, powerc = freqc[index], powerc[index]
-	ytemplate = ytemplate[index]
 	powerc = smoothWrapper(freqc, powerc, 0.02*dnu, "bartlett")
 	powerc = powerc/np.max(powerc)
 
@@ -201,8 +207,8 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 			tfreq, tpower, tpowers = freq[tindex_l[l]], power[tindex_l[l]], powers[tindex_l[l]]
 			meanlevel = np.median(tpowers)
 			# find the highest peak in this range as a guess for the radial mode
-			index_peaks, properties = find_peaks(tpowers, height=(2.0,None), 
-				distance=int(dnu02/samplinginterval/5.0), prominence=(1.5,None))
+			index_peaks, properties = find_peaks(tpowers, height=(height,None), 
+				distance=int(dnu02/samplinginterval/5.0), prominence=(prominence,None))
 			Npeaks = len(index_peaks)
 			if Npeaks != 0:
 				if l != 1:
@@ -243,11 +249,11 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 		for ipeak in range(Npeaks1):
 			ax2.scatter([tmode_freq[tmode_l==1][ipeak]],[c+(d-c)*0.8], c=colors[tmode_l[tmode_l==1][ipeak]], 
 				marker=markers[tmode_l[tmode_l==1][ipeak]], zorder=10)
-
 		### end of visulization
 
 	mode_freq = np.array([j for k in mode_freq for j in k])
 	mode_l = np.array([j for k in mode_l for j in k])
+
 
 	### visulization (left) - plot echelle and collapsed echelle to locate peak
 	ax1 = plt.subplot2grid((5,3), (0,0), rowspan=2)
@@ -277,23 +283,25 @@ def manualGuess(freq: np.array, power: np.array, dnu: float, numax: float, filep
 	ax2.plot(freqc, powerc, color='black')
 	ax2.axis([freqc.min(), freqc.max(), powerc.min(), powerc.max()])
 
-	# template
-	ax3 = fig.add_subplot(5,3,10)
-	ax3.plot(freqc, ytemplate, color='C2')
-	ax3.axis([freqc.min(), freqc.max(), powerc.min(), powerc.max()])
-	if offset > 0.0:
-		ax3.set_xlabel("(Frequency - "+str("{0:.2f}").format(offset)+ ") mod "+str("{0:.2f}").format(dnu) + " [muHz]")
-	if offset < 0.0:
-		ax3.set_xlabel("(Frequency + "+str("{0:.2f}").format(np.abs(offset))+ ") mod "+str("{0:.2f}").format(dnu) + " [muHz]")
-	if offset == 0.0:
-		ax3.set_xlabel("Frequency mod "+str("{0:.2f}").format(dnu) + " [muHz]")
+	if eps == None:
+		# template
+		ax3 = fig.add_subplot(5,3,10)
+		ax3.plot(freqc, ytemplate, color='C2')
+		ax3.axis([freqc.min(), freqc.max(), powerc.min(), powerc.max()])
+		if offset > 0.0:
+			ax3.set_xlabel("(Frequency - "+str("{0:.2f}").format(offset)+ ") mod "+str("{0:.2f}").format(dnu) + " [muHz]")
+		if offset < 0.0:
+			ax3.set_xlabel("(Frequency + "+str("{0:.2f}").format(np.abs(offset))+ ") mod "+str("{0:.2f}").format(dnu) + " [muHz]")
+		if offset == 0.0:
+			ax3.set_xlabel("Frequency mod "+str("{0:.2f}").format(dnu) + " [muHz]")
 
-	# cross correlation
-	ax4 = fig.add_subplot(5,3,13)
-	ax4.plot(lag, rho)
-	ax4.plot(lag[index_hp], rho[index_hp], "x", color="C1")
-	ax4.axis([-dnu, dnu, rho.min(), rho.max()+0.1])
-	ax4.set_xlabel("Frequency lag [muHz]")
+		# cross correlation
+		ax4 = fig.add_subplot(5,3,13)
+		ax4.plot(lag, rho)
+		ax4.plot(lag[index_hp], rho[index_hp], "x", color="C1")
+		ax4.axis([-dnu, dnu, rho.min(), rho.max()+0.1])
+		ax4.set_xlabel("Frequency lag [muHz]")
+
 	### end of visulizaiton
 
 
