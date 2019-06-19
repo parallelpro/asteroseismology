@@ -8,7 +8,10 @@ from scipy.optimize import minimize
 import emcee
 import sys
 import corner
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from multiprocessing import Pool
 
 __all__ = ["mfr"]
 
@@ -22,7 +25,7 @@ def mrf_corr(theta, x, y, model, args=None, kwargs=None):
 	autocorr = scipy.signal.fftconvolve(y, ymodel, mode='full') 
 	return np.mean(autocorr)
 
-def mrf_prior(theta, flatpriors):
+def mrf_lnprior(theta, flatpriors):
 	ndim = len(flatpriors)
 	for idim in range(ndim):
 		if flatpriors[idim][0] <= theta[idim] < flatpriors[idim][1]:
@@ -30,7 +33,7 @@ def mrf_prior(theta, flatpriors):
 		else:
 			return -np.inf
 
-def mrf_post(theta, x, y, model, flatpriors, args, kwargs):
+def mrf_lnpost(theta, x, y, model, flatpriors, args, kwargs):
 	# lp = mrf_prior(theta, flatpriors)
 	# if not np.isfinite(lp): 
 	# 	return -np.inf
@@ -38,21 +41,21 @@ def mrf_post(theta, x, y, model, flatpriors, args, kwargs):
 	# 	return lp + mrf_likelihood(theta, x, y, model, args=args, kwargs=kwargs)
 	ndim = len(theta)
 	pointer = True
-	for idim in range(5):
-		if not flatpriors[idim][0] <= theta[idim] < flatpriors[idim][1]:
+	for idim in range(ndim):
+		if not flatpriors[idim][0] < theta[idim] < flatpriors[idim][1]:
 			pointer = False
 
 	if pointer:
-		return mrf_likelihood(theta, x, y, model, args, kwargs)
+		return mrf_lnlikelihood(theta, x, y, model, args, kwargs)
 	else:
 		return -np.inf	
 
 
-def mrf_likelihood(theta, x, y, model, args, kwargs):
+def mrf_lnlikelihood(theta, x, y, model, args, kwargs):
 	ymodel = model(theta, x, *args, **kwargs)
-	return np.sum(ymodel*y)/np.sum(ymodel)
+	return np.log((np.sum(ymodel*y)/np.sum(ymodel)))*10.0
 
-def mfr(x, y, model, para_guess, bounds, filepath, args=None, kwargs=None):
+def mfr(x, y, model, para_guess, bounds, filepath, para_name, args=None, kwargs=None):
 	'''
 	Matched filter response.
 
@@ -69,6 +72,8 @@ def mfr(x, y, model, para_guess, bounds, filepath, args=None, kwargs=None):
 	para_guess: array-like[Ntheta,]
 
 	bounds: array-like[Ntheta,2]
+
+	para_name: array-like[Ntheta,]
 
 	filepath: str
 
@@ -87,38 +92,41 @@ def mfr(x, y, model, para_guess, bounds, filepath, args=None, kwargs=None):
 	print("enabling Ensemble sampler.")
 	print("ndimension: ", ndim, ", nwalkers: ", nwalkers)
 	pos0 = [para_guess + 1.0e-8*np.random.randn(ndim) for j in range(nwalkers)]
-	sampler = emcee.EnsembleSampler(nwalkers, ndim, mrf_post, 
-		args=(x, y, model, bounds, args, kwargs))
 
-	# burn-in
-	nburn, width = 500, 30
-	print("start burning in. nburn:", nburn)
-	for j, result in enumerate(sampler.sample(pos0, iterations=nburn, thin=10)):
-		n = int((width+1) * float(j) / nburn)
-		sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
-	sys.stdout.write("\n")
-	pos, lnpost, rstate = result
-	sampler.reset()
+	with Pool() as pool:
+		sampler = emcee.EnsembleSampler(nwalkers, ndim, mrf_lnpost, 
+			args=(x, y, model, bounds, args, kwargs), pool=pool)
 
-	# actual iteration
-	nsteps = 1000
-	width = 30 # 10000, 30
-	print("start iterating. nsteps:", nsteps)
-	for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost)):
-		#pos, lnpost, rstate = result
-		n = int((width+1) * float(j) / nsteps)
-		sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
-	sys.stdout.write("\n")
+		# burn-in
+		nburn, width = 500, 60
+		print("start burning in. nburn:", nburn)
+		for j, result in enumerate(sampler.sample(pos0, iterations=nburn, thin=10)):
+			n = int((width+1) * float(j) / nburn)
+			sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+		sys.stdout.write("\n")
+		pos, lnpost, rstate = result
+		sampler.reset()
+
+		# actual iteration
+		nsteps = 1000
+		width = 60 # 10000, 30
+		print("start iterating. nsteps:", nsteps)
+		for j, result in enumerate(sampler.sample(pos, iterations=nsteps, lnprob0=lnpost)):
+			#pos, lnpost, rstate = result
+			n = int((width+1) * float(j) / nsteps)
+			sys.stdout.write("\r[{0}{1}]".format('#' * n, ' ' * (width - n)))
+		sys.stdout.write("\n")
 
 	# modify samples
 	samples = sampler.chain[:,:,:].reshape((-1,ndim))
-
+	np.save(filepath+"samples.npy", samples)
+	
 	st="ES"
 	# save guessed parameters
 	np.savetxt(filepath+st+"guess.txt", para_guess, delimiter=",", fmt=("%0.8f"), header="para_guess")
 
 	# plot triangle and save
-	para = ["eps", "d01", "eps_g", "dpi1", "cp"]
+	para = para_name
 	fig = corner.corner(samples, labels=para, quantiles=(0.16, 0.5, 0.84), truths=para_guess)
 	fig.savefig(filepath+st+"triangle.png")
 	plt.close()
@@ -150,7 +158,6 @@ def mfr(x, y, model, para_guess, bounds, filepath, args=None, kwargs=None):
 	plt.tight_layout()
 	plt.savefig(filepath+st+'traces.png')
 	plt.close()
-
 
 
 	# # find the parameters that best reproduce y.
