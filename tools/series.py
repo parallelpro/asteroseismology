@@ -7,7 +7,7 @@ from astropy.stats import LombScargle
 
 
 __all__ = ["a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
-		"lorentzian", "medianFilter", "psd"]
+		"lorentzian", "medianFilter", "psd", "closest_point"]
 
 def a_correlate(x: np.array, y: np.array): 
 	'''
@@ -189,7 +189,7 @@ def medianFilter(x, y, period, yerr=None):
 	else:
 		return ynew
 
-def psd(x, y, oversampling=1, ):
+def psd(x, y, oversampling=1, freqmin=None, freqmax=None):
 	"""
 	Calculate the power spectrum density for a discrete time series.
 	https://en.wikipedia.org/wiki/Spectral_density
@@ -238,7 +238,10 @@ def psd(x, y, oversampling=1, ):
 	fnyq = 0.5*fs
 	dfreq = fs/Nx
 
-	freq = np.arange(dfreq, fnyq, dfreq/oversampling)
+	if freqmin is None: freqmin = dfreq
+	if freqmax is None: freqmax = fnyq
+	
+	freq = np.arange(freqmin, freqmax, dfreq/oversampling)
 	power = LombScargle(x, y).power(freq, normalization='psd')
 	
 	# factor 2 comes from a crude normalization 
@@ -247,5 +250,8 @@ def psd(x, y, oversampling=1, ):
 
 	return freq, psd
 
-
+def closest_point(x, y, xvalue):
+	index = np.where(np.absolute(x-xvalue) == np.min(np.absolute(x-xvalue)))[0][0]
+	yvalue = y[index]
+	return yvalue
 

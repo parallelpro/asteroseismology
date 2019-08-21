@@ -253,7 +253,9 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 	filepath: str
 		the file path to store outputs.
 
+
 	Optional input:
+
 	fittype: str, default: "ParallelTempering"
 		one of ["ParallelTempering", "Ensemble", "LeastSquare"].
 
@@ -283,9 +285,8 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 		from ``ifresolved''.
 
 
-	freqres:
-
 	Output:
+
 	Data: acceptance fraction, bayesian evidence, 
 		parameter estimation result, parameter initial guess.
 	Plots: fitting results, posterior distribution, traces.
@@ -360,7 +361,7 @@ def modefitWrapper(dnu: float, inclination: float, fnyq: float, mode_freq: np.ar
 			if automode: para_guess = np.append(para_guess, guess[k])
 
 	
-	# write guessed parameters
+	# write guessed parameters;
 	para_guess = para_guess
 
 	if fittype in ["ParallelTempering", "Ensemble"]:

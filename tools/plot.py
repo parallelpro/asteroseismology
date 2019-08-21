@@ -47,6 +47,9 @@ def echelle(x: np.array, y: np.array, period: float,
 
 	Exemplary call:
 
+	import matplotlib.pyplot as plt
+	fig = plt.figure(figsize=(6,8))
+	ax1 = fig.add_subplot(111)
 	echx, echy, echz = echelle(tfreq,tpowers_o,dnu,numax-9.0*dnu,numax+9.0*dnu,echelletype="single",offset=offset)
 	levels = np.linspace(np.min(echz),np.max(echz),500)
 	ax1.contourf(echx,echy,echz,cmap="gray_r",levels=levels)
@@ -57,7 +60,7 @@ def echelle(x: np.array, y: np.array, period: float,
 		ax1.set_xlabel("(Frequency + "+str("{0:.2f}").format(np.abs(offset))+ ") mod "+str("{0:.2f}").format(dnu) + " ($\mu$Hz)")
 	if offset == 0.0:
 		ax1.set_xlabel("Frequency mod "+str("{0:.2f}").format(dnu) + " ($\mu$Hz)")
-
+	plt.savefig("echelle.png")
 
 	'''
 
