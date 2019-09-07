@@ -189,24 +189,28 @@ def medianFilter(x, y, period, yerr=None):
 	else:
 		return ynew
 
-def psd(x, y, oversampling=1, freqmin=None, freqmax=None):
+def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None):
 	"""
 	Calculate the power spectrum density for a discrete time series.
 	https://en.wikipedia.org/wiki/Spectral_density
 
 
 	Input:
-	x: np.array
-		The time.
+	x: array-like[N,]
+		The time array.
 
-	y: np.array
-		The flux.
+	y: array-like[N,]
+		The flux array.
 
 
 	Optional input:
 	oversampling: float, default: 1
 		The oversampling factor to control the frequency grid.
 		The larger the number, the denser the grid.
+
+	freqMin: float, default: frequency resolution
+
+	freqMax: float, default: nyquist frequency
 
 
 	Output:
@@ -238,10 +242,10 @@ def psd(x, y, oversampling=1, freqmin=None, freqmax=None):
 	fnyq = 0.5*fs
 	dfreq = fs/Nx
 
-	if freqmin is None: freqmin = dfreq
-	if freqmax is None: freqmax = fnyq
-	
-	freq = np.arange(freqmin, freqmax, dfreq/oversampling)
+	if freqMin is None: freqMin = dfreq
+	if freqMax is None: freqMax = fnyq
+
+	if freq is None: freq = np.arange(freqMin, freqMax, dfreq/oversampling)
 	power = LombScargle(x, y).power(freq, normalization='psd')
 	
 	# factor 2 comes from a crude normalization 
