@@ -6,8 +6,48 @@ import numpy as np
 from astropy.stats import LombScargle
 
 
-__all__ = ["a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
-		"lorentzian", "medianFilter", "psd", "closest_point"]
+__all__ = ["auto_correlate", "a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
+		"lorentzian", "medianFilter", "psd", "arg_closest_node"]
+
+def auto_correlate(x, y, need_interpolate = False, samplinginterval = None): 
+
+    '''
+    Generate autocorrelation coefficient as a function of lag.
+
+    Input:
+
+        x: np.array, the independent variable of the time series.
+        y: np.array, the dependent variable of the time series.
+        need_interpolate: True or False. True is for unevenly spaced time series.
+        samplinginterval: float. Default value: the median of intervals.
+
+    Output:
+
+        lagn: time lag.
+        rhon: autocorrelation coeffecient.
+
+    '''
+
+    if len(x) != len(y): 
+        raise ValueError("x and y must have equal size.")
+
+    if need_interpolate is not None:
+        if samplinginterval is None:
+            samplinginterval = np.median(x[1:-1] - x[0:-2])
+        xp = np.arange(np.min(x),np.max(x),samplinginterval)
+        yp = np.interp(xp, x, y)
+        x = xp
+        y = yp
+
+    new_y = y - np.mean(y)
+    aco = np.correlate(new_y, new_y, mode='same')
+
+    N = len(aco)
+    lagn = x[int(N/2):N] - x[int(N/2)]
+    rhon = aco[int(N/2):N] / np.var(y)
+    rhon = rhon / np.max(rhon)
+
+    return lagn, rhon
 
 def a_correlate(x: np.array, y: np.array): 
 	'''
@@ -189,7 +229,7 @@ def medianFilter(x, y, period, yerr=None):
 	else:
 		return ynew
 
-def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None):
+def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="psd"):
 	"""
 	Calculate the power spectrum density for a discrete time series.
 	https://en.wikipedia.org/wiki/Spectral_density
@@ -250,12 +290,19 @@ def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None):
 	
 	# factor 2 comes from a crude normalization 
 	# according to Parsevel's theorem
-	psd = power*2*dx
+	if return_val == "psd":
+		psd = power*dx
+	if return_val == "periodogram":
+		psd = power
+	if return_val == "power":
+		psd = power/Nx
 
 	return freq, psd
 
-def closest_point(x, y, xvalue):
-	index = np.where(np.absolute(x-xvalue) == np.min(np.absolute(x-xvalue)))[0][0]
-	yvalue = y[index]
-	return yvalue
+def arg_closest_node(node, roads):
+	assert len(roads.shape)==1, "roads should have dim=1."
+	roads=roads.reshape((-1,1))
+	assert len(node.shape)==1, "node should have dim=1."
+	idx=np.argmin((roads-node)**2., axis=0)
+	return idx
 
