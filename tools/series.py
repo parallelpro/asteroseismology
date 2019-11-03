@@ -3,7 +3,7 @@
 
 
 import numpy as np
-from astropy.stats import LombScargle
+from astropy.timeseries import LombScargle
 
 
 __all__ = ["auto_correlate", "a_correlate", "c_correlate", "smoothWrapper", "gaussian", 
@@ -229,75 +229,82 @@ def medianFilter(x, y, period, yerr=None):
 	else:
 		return ynew
 
-def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="psd"):
-	"""
-	Calculate the power spectrum density for a discrete time series.
-	https://en.wikipedia.org/wiki/Spectral_density
+def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="power"):
+    """
+    Calculate the power spectrum density for a discrete time series.
+    https://en.wikipedia.org/wiki/Spectral_density
 
 
-	Input:
-	x: array-like[N,]
-		The time array.
+    Input:
+    x: array-like[N,]
+        The time array.
 
-	y: array-like[N,]
-		The flux array.
-
-
-	Optional input:
-	oversampling: float, default: 1
-		The oversampling factor to control the frequency grid.
-		The larger the number, the denser the grid.
-
-	freqMin: float, default: frequency resolution
-
-	freqMax: float, default: nyquist frequency
+    y: array-like[N,]
+        The flux array.
 
 
-	Output:
-	freq: np.array
-		The frequency, in unit of [x]^-1.
+    Optional input:
+    oversampling: float, default: 1
+        The oversampling factor to control the frequency grid.
+        The larger the number, the denser the grid.
 
-	psd: np.array
-		The power spectrum density, in unit of [y]^2/[x].
-		https://en.wikipedia.org/wiki/Spectral_density
+    freqMin: float, default: frequency resolution
 
-
-	Examples:
-	>>> ts = np.load("flux.npy")
-	>>> t = ts["time_d"]   # the time in day
-	>>> f = ts["flux_mf"]   # the relative flux fluctuated around 1
-	>>> f = (f-1)*1e6   # transform to parts per million
-
-	>>> freq, psd = se.psd(t, f)
-	>>> freq = freq/(24*3600)*1e6   # c/d to muHz
-	>>> psd = psd*(24*3600)*1e-6   # ppm^2/(c/d) to ppm^2/muHz
-
-	"""
+    freqMax: float, default: nyquist frequency
 
 
-	Nx = len(x)
-	dx = np.median(x[1:]-x[:-1]) 
-	fs = 1.0/dx
-	Tobs = dx*len(x)
-	fnyq = 0.5*fs
-	dfreq = fs/Nx
+    Output:
+    freq: np.array
+        The frequency, in unit of [x]^-1.
 
-	if freqMin is None: freqMin = dfreq
-	if freqMax is None: freqMax = fnyq
+    psd: np.array
+        The power spectrum density, in unit of [y]^2/[x].
+        https://en.wikipedia.org/wiki/Spectral_density
 
-	if freq is None: freq = np.arange(freqMin, freqMax, dfreq/oversampling)
-	power = LombScargle(x, y).power(freq, normalization='psd')
+
+    Examples:
+    >>> ts = np.load("flux.npy")
+    >>> t = ts["time_d"]   # the time in day
+    >>> f = ts["flux_mf"]   # the relative flux fluctuated around 1
+    >>> f = (f-1)*1e6   # units, from 1 to parts per million (ppm)
+
+    >>> freq, psd = se.psd(t, f, return_val="psd_new")
+    >>> freq = freq/(24*3600)*1e6   # c/d to muHz
+    >>> psd = psd*(24*3600)*1e-6   # ppm^2/(c/d) to ppm^2/muHz
+
+    """
+
+    if not (return_val in ["psd_old", "periodogram", "power", "amplitude", "psd_new"]):
+        raise ValueError("return_val should be one of ['psd_old', 'periodogram', 'power', 'amplitude', 'psd_new'] ")
+
+    Nx = len(x)
+    dx = np.median(x[1:]-x[:-1]) 
+    fs = 1.0/dx
+    Tobs = dx*len(x)
+    fnyq = 0.5*fs
+    dfreq = fs/Nx
+
+    if freqMin is None: freqMin = dfreq
+    if freqMax is None: freqMax = fnyq
+
+    if freq is None: freq = np.arange(freqMin, freqMax, dfreq/oversampling)
 	
-	# factor 2 comes from a crude normalization 
-	# according to Parsevel's theorem
-	if return_val == "psd":
-		psd = power*dx
-	if return_val == "periodogram":
-		psd = power
-	if return_val == "power":
-		psd = power/Nx
-
-	return freq, psd
+    if return_val == "psd_old":
+        p = LombScargle(x, y).power(freq, normalization='psd')*dx
+    if return_val == "periodogram":
+        p = LombScargle(x, y).power(freq, normalization='psd')
+    if return_val == "power":
+        p = LombScargle(x, y).power(freq, normalization='psd')/Nx*4.
+    if return_val == "amplitude":
+        p = np.sqrt(LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)
+    if return_val == "psd_new":
+        nu = 0.5*(freqMin+freqMax)
+        freq_window = np.arange(freqMin, freqMax, dfreq/10)
+        power_window = LombScargle(x, np.cos(2*np.pi*nu*x)).power(freq, normalization="standard")
+        Tobs = 1.0/np.sum(np.median(freq_window[1:]-freq_window[:-1])*power_window)
+        p = (LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)/4.*Tobs
+		
+    return freq, p
 
 def arg_closest_node(node, roads):
 	assert len(roads.shape)==1, "roads should have dim=1."
