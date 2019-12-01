@@ -7,7 +7,7 @@ import numpy as np
 __all__ = ["echelle"]
 
 def echelle(x: np.array, y: np.array, period: float, 
-	lowc: float, highc: float, echelletype: str="single", offset: float=0.0):
+	fmin: float=None, fmax: float=None, echelletype: str="single", offset: float=0.0):
 	'''
 	Generate a z-map for echelle plotting.
 
@@ -70,26 +70,24 @@ def echelle(x: np.array, y: np.array, period: float,
 	if len(x) != len(y): 
 		raise ValueError("x and y must have equal size.")	
 
-	lowc = lowc - offset
-	highc = highc - offset
+	if fmin is None: fmin=0.
+	if fmax is None: fmax=np.nanmax(x)
+
+	fmin = fmin - offset
+	fmax = fmax - offset
 	x = x - offset
 
-	# if lowc <= 0.0:
-	# 	lowc = 0.0
-	# else:
-	lowc = lowc - (lowc % period)
-
-	# trim data
-	index = np.intersect1d(np.where(x>=lowc)[0],np.where(x<=highc)[0])
-	trimx = x[index]
-	trimy = y[index]
+	if fmin <= 0.0:
+		fmin = 0.0
+	else:
+		fmin = fmin - (fmin % period)
 
 	# first interpolate
-	samplinginterval = np.median(trimx[1:-1] - trimx[0:-2]) * 0.1
-	xp = np.arange(lowc,highc+period,samplinginterval)
+	samplinginterval = np.median(x[1:-1] - x[0:-2]) * 0.1
+	xp = np.arange(fmin,fmax+period,samplinginterval)
 	yp = np.interp(xp, x, y)
 
-	n_stack = int((highc-lowc)/period)
+	n_stack = int((fmax-fmin)/period)
 	n_element = int(period/samplinginterval)
 	#print(n_stack,n_element,len())
 
@@ -98,7 +96,7 @@ def echelle(x: np.array, y: np.array, period: float,
 	arr2 = np.array([arr,arr])
 	yn = np.reshape(arr2,len(arr)*2,order="F")
 	yn = np.insert(yn,0,0.0)
-	yn = np.append(yn,n_stack*period) + lowc #+ offset
+	yn = np.append(yn,n_stack*period) + fmin #+ offset
 
 	if echelletype == "single":
 		xn = np.arange(1,n_element+1)/n_element * period

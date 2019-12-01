@@ -274,8 +274,8 @@ def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val=
 
     """
 
-    if not (return_val in ["psd_old", "periodogram", "power", "amplitude", "psd_new"]):
-        raise ValueError("return_val should be one of ['psd_old', 'periodogram', 'power', 'amplitude', 'psd_new'] ")
+    if not (return_val in ["psd_old", "periodogram", "power", "amplitude", "psd_new", "window"]):
+        raise ValueError("return_val should be one of ['psd_old', 'periodogram', 'power', 'amplitude', 'psd_new', 'window'] ")
 
     Nx = len(x)
     dx = np.median(x[1:]-x[:-1]) 
@@ -300,10 +300,15 @@ def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val=
     if return_val == "psd_new":
         nu = 0.5*(freqMin+freqMax)
         freq_window = np.arange(freqMin, freqMax, dfreq/10)
-        power_window = LombScargle(x, np.cos(2*np.pi*nu*x)).power(freq, normalization="standard")
+        power_window = LombScargle(x, np.sin(2*np.pi*nu*x)).power(freq_window, normalization="psd")/Nx*4.
         Tobs = 1.0/np.sum(np.median(freq_window[1:]-freq_window[:-1])*power_window)
-        p = (LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)/4.*Tobs
-		
+        p = (LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)*Tobs
+    if return_val == "window":
+        nu = 0.5*(freqMin+freqMax)
+        freq_window = np.arange(freqMin, freqMax, dfreq/10)
+        power_window = LombScargle(x, np.sin(2*np.pi*nu*x)).power(freq_window, normalization="psd")/Nx*4.
+        freq, p = freq_window-nu, power_window
+
     return freq, p
 
 def arg_closest_node(node, roads):
