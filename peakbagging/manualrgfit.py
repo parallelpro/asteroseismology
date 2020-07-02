@@ -4,7 +4,7 @@
 
 import numpy as np
 from asteroseismology.tools.series import smoothWrapper, lorentzian, gaussian, c_correlate
-from asteroseismology.tools.plot import echelle
+from asteroseismology.tools.echelles import echelle
 from asteroseismology.peakbagging.modefit import modefitWrapper, h1testWrapper
 from asteroseismology.globe import sep
 from scipy.signal import find_peaks

@@ -9,7 +9,6 @@ import emcee
 import sys
 import corner
 import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 

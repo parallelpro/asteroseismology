@@ -112,3 +112,4 @@ def echelle(x: np.array, y: np.array, period: float,
 				z[j,:] = np.concatenate([yp[n_element*(i):n_element*(i+1)],yp[n_element*(i+1):n_element*(i+2)]])
 
 	return xn, yn, z
+
