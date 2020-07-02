@@ -150,11 +150,8 @@ def powerSpectrumSmoothWrapper(freq, power, windowSize=0.25, windowType='flat',
         if np.sum(idx) <= window_len:
             powersp[idx] = powerp[idx]
         else:
-            inputArray = np.concatenate((np.ones(window_len)*powerp[idx][0], powerp[idx], np.ones(window_len)*powerp[idx][-1]))
+            inputArray = np.concatenate((np.ones(window_len)*powerp[idx][window_len:0:-1], powerp[idx], np.ones(window_len)*powerp[idx][-1:-window_len-1:-1]))
             powersp[idx] = smooth(inputArray, window_len, window=windowType)[window_len:window_len+np.sum(idx)]
-        # if np.sum(idx)>=3:
-        #     powersp[idx][0] = powersp[idx][1]
-        #     powersp[idx][-1] = powersp[idx][-2]
 
     powers = np.interp(freq, freqp, powersp)
     return powers
