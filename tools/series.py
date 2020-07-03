@@ -31,7 +31,7 @@ def a_correlate(x, y, ifInterpolate=True, samplingInterval=None):
         raise ValueError("x and y must have equal size.")
 
     if ifInterpolate:
-        samplingInterval = np.median(x[1:-1] - x[0:-2]) if (samplingInterval is None) else samplingInterval
+        samplingInterval = np.median(np.diff(x)) if (samplingInterval is None) else samplingInterval
         xp = np.arange(np.min(x),np.max(x),samplingInterval)
         yp = np.interp(xp, x, y)
         x, y = xp, yp
@@ -125,7 +125,7 @@ def powerSpectrumSmoothWrapper(freq, power, windowSize=0.25, windowType='flat',
     freq: array-like[N,] in muHz
     power: array-like[N,]
     windowSize: float, in unit of the p-mode large separation
-    windowType: flat/hanning/hamming/bartlett/blackman
+    windowType: flat/hanning/hamming/bartlett/blackman/gaussian
     samplingInterval: the time between adjacent sampling points.
     '''
 
@@ -165,7 +165,7 @@ def smoothWrapper(x, y, windowSize, windowType, samplingInterval=None):
     x: the independent variable of the time series.
     y: the dependent variable of the time series.
     windowSize: the period/width of the sliding window.
-    windowType: flat/hanning/hamming/bartlett/blackman
+    windowType: flat/hanning/hamming/bartlett/blackman/gaussian
     samplingInterval: the time between adjacent sampling points.
 
     Output:
@@ -197,12 +197,15 @@ def smooth(x, window_len = 11, window = "hanning"):
         raise ValueError("Input vector needs to be bigger than window size.")
     if window_len < 3:
         return x
-    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman", "gaussian"]:
         raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     s = x #np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
     if window == "flat":
         w = np.ones(window_len,"d")
+    elif window == "gaussian":
+        w = gaussian(np.arange(-window_len*3, window_len*3,1), 
+                    0, window_len, 1./(np.sqrt(2*np.pi)*window_len))
     else:
         w = eval("np."+window+"(window_len)") 
     
