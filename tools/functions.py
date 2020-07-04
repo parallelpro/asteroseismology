@@ -53,9 +53,9 @@ def standardBackgroundModel(x, params, fnyq, NHarvey=3, ifReturnOscillation=True
     Input:
     x: array-like[N,]
     params: flatNoiseLevel, heightOsc, numax, widthOsc, 
-            amplitudeHarvey1, freqHarvey1, powerHarvey1,
-            (amplitudeHarvey2, freqHarvey2, powerHarvery2,
-            (amplitudeHarvey3, freqHarvey3, powerHarvery3))
+            ampHarvey1, freqHarvey1, powerHarvey1,
+            (ampHarvey2, freqHarvey2, powerHarvery2,
+            (ampHarvey3, freqHarvey3, powerHarvery3))
     fnyq: float, the nyquist frequency in unit of [x]
     NHarvey: int, the number of Harvey profiles
     ifReturnOscillation: bool
@@ -70,8 +70,8 @@ def standardBackgroundModel(x, params, fnyq, NHarvey=3, ifReturnOscillation=True
 
     zeta = 2.0*2.0**0.5/np.pi
     for iHarvey in range(NHarvey):
-        amplitudeHarvey, freqHarvey, powerHarvey = params[iHarvey*3+4:iHarvey*3+7]
-        power += zeta*amplitudeHarvey**2.0/(freqHarvey*(1+(x/freqHarvey)**powerHarvey))
+        ampHarvey, freqHarvey, powerHarvey = params[iHarvey*3+4:iHarvey*3+7]
+        power += zeta*ampHarvey**2.0/(freqHarvey*(1+(x/freqHarvey)**powerHarvey))
 
     if ifReturnOscillation:
         power += heightOsc * np.exp(-1.0*(numax-x)**2/(2.0*widthOsc**2.0))

@@ -6,37 +6,19 @@ import numpy as np
 
 __all__ = ["echelle"]
 
-def echelle(x: np.array, y: np.array, period: float, 
-	fmin: float=None, fmax: float=None, echelletype: str="single", offset: float=0.0):
+def echelle(x, y, period, fmin=None, fmax=None, echelletype="single", offset=0.0):
 	'''
 	Generate a z-map for echelle plotting.
 
 	Input:
 
-	x: np.array
-		the frequency.
-
-	y: np.array
-		the power spectrum.
-
-	period: float
-		the large separation.
-
-	lowc: float
-		the lower boundary frequency, in the same unit of x.
-
-	highc: float
-		the higher boundary frequency, in the same unit of x.
-
-
-	Optional input:
-
-	echelletype: str, default: "single"
-		single or replicated.
-
-	offset: float, default: 0
-		the horizontal shift in the same unit of x.
-
+	x: array-like[N,]
+	y: array-like[N,]
+	period: the large separation,
+	fmin: the lower boundary
+	fmax: the upper boundary
+	echelletype: single/replicated
+	offset: the horizontal shift
 
 	Output:
 
