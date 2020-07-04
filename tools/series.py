@@ -8,7 +8,7 @@ from astropy.timeseries import LombScargle
 
 __all__ = ["a_correlate", "c_correlate", 
         "smoothWrapper", "powerSpectrumSmoothWrapper",
-        "gaussian", "lorentzian", "medianFilter", "psd", "arg_closest_node"]
+        "medianFilter", "psd", "arg_closest_node"]
 
 def a_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
 
@@ -84,36 +84,6 @@ def c_correlate(x, y1, y2, ifInterpolate=True, samplingInterval=None):
     rho = rho / np.max(rho)
 
     return lag, rho
-
-
-def gaussian(x, mu, sigma, height):
-    '''
-    Return the value of gaussian given parameters.
-
-    Input:
-    x: array-like[N]
-    mu, sigma, height: float
-
-    Output:
-    y: the dependent variable of the time series.
-
-    '''
-    return height * np.exp(-(x-mu)**2.0/(2*sigma**2.0))
-
-
-def lorentzian(x, mu, gamma, height):
-    '''
-    Return the value of gaussian given parameters.
-
-    Input:
-    x: array-like[N]
-    mu, gamma, height: float
-
-    Output:
-    y: the dependent variable of the time series.
-
-    '''
-    return height / (1 + (x-mu)**2.0/gamma**2.0)
 
 
 def powerSpectrumSmoothWrapper(freq, power, windowSize=0.25, windowType='flat',
