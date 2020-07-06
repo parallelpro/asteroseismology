@@ -70,10 +70,10 @@ def _plot_mcmc_traces(Ndim, samples, paramsNames):
 
 
 class ESSampler:
-    def __init__(self, x, y, paramsInit, posterior, 
+    def __init__(self, paramsInit, posterior, 
                     Nsteps=2000, Nburn=1000, Nwalkers=100,
                     paramsNames=None):
-        self.x, self.y, self.paramsInit = x, y, paramsInit
+        self.paramsInit = paramsInit
         self.posterior = posterior
 
         self.Nburn=Nburn
@@ -131,7 +131,7 @@ class ESSampler:
         self.result = np.concatenate([result, paramsMax.reshape(self.Ndim,1)], axis=1)
 
         # save acceptance fraction
-        self.acceptanceFraction = np.array([np.mean(sampler.acceptanceFraction)])
+        self.acceptanceFraction = np.mean(sampler.acceptance_fraction)
 
         self.diagnostics = {'paramsInit':self.paramsInit,
                         'paramsMedian':self.paramsMedian,
