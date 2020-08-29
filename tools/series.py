@@ -4,7 +4,7 @@
 
 import numpy as np
 from astropy.timeseries import LombScargle
-
+from .functions import gaussian
 
 __all__ = ["a_correlate", "c_correlate", 
         "smoothWrapper", "powerSpectrumSmoothWrapper",

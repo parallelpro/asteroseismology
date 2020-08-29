@@ -13,6 +13,8 @@ from wotan import flatten
 import peakutils
 from scipy.signal import detrend 
 
+__all__ = ['solarlikeGlobalSeismo']
+
 class solarlikeGlobalSeismo:
     '''
     Under development:
@@ -71,8 +73,8 @@ class solarlikeGlobalSeismo:
 
     def get_numax(self):
         # use 2d ACF to get a rough estimation on numax
-        freqRanges = np.logspace(min(np.log10(15.),np.log10(np.min(freq))), 
-                                np.log10(np.max(freq)), 
+        freqRanges = np.logspace(min(np.log10(15.),np.log10(np.min(self.freq))), 
+                                np.log10(np.max(self.freq)), 
                                 250)
         # freqRanges = np.linspace(15., np.max(freq), 200.)
         freqCenters = (freqRanges[1:]+freqRanges[:-1])/2.
@@ -172,13 +174,15 @@ class solarlikeGlobalSeismo:
         fitterDiagnostic = fitterOutput[np.nanargmin(fitterResidual)]
 
         NHarvey = int((len(fitterDiagnostic['paramsMax'])-4)/3)
-        # powerBackground = standardBackgroundModel(self.freq, fitterDiagnostic['paramsMax'], 
-        #                             self.fnyq, NHarvey=NHarvey, ifReturnOscillation=False)
-        # powerFit = standardBackgroundModel(self.freq, fitterDiagnostic['paramsMax'], 
-        #                             self.fnyq, NHarvey=NHarvey, ifReturnOscillation=True)
-        # powerSNR = self.power/powerBackground
+        powerBackground = standardBackgroundModel(self.freq, fitterDiagnostic['paramsMax'], 
+                                    self.fnyq, NHarvey=NHarvey, ifReturnOscillation=False)
+        powerFit = standardBackgroundModel(self.freq, fitterDiagnostic['paramsMax'], 
+                                    self.fnyq, NHarvey=NHarvey, ifReturnOscillation=True)
+        powerSNR = self.power/powerBackground
         self.bg_diagnostics = {**fitterDiagnostic, 
-                        'NHarvey':NHarvey}
+                        'NHarvey':NHarvey, 
+                        'powerBackground':powerBackground, 
+                        'powerFit':powerFit, 'powerSNR':powerSNR}
         return self.bg_diagnostics
 
 
