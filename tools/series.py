@@ -8,7 +8,8 @@ from .functions import gaussian
 
 __all__ = ["a_correlate", "c_correlate", 
         "smoothWrapper", "powerSpectrumSmoothWrapper",
-        "medianFilter", "psd", "arg_closest_node"]
+        "medianFilter", "psd", "arg_closest_node",
+        "quantile"]
 
 def a_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
 
@@ -288,3 +289,47 @@ def arg_closest_node(node, roads):
     idx=np.argmin((roads-node)**2., axis=0)
     return idx
 
+
+def quantile(x, q, weights=None):
+
+    """
+    Compute sample quantiles with support for weighted samples.
+    Modified based on 'corner'.
+
+    ----------
+    Input:
+    x: array-like[nsamples,]
+        The samples.
+    q: array-like[nquantiles,]
+        The list of quantiles to compute. These should all be in the range
+        '[0, 1]'.
+
+    ----------
+    Optional input:
+    weights : Optional[array-like[nsamples,]]
+        An optional weight corresponding to each sample.
+
+    ----------
+    Output:
+    quantiles: array-like[nquantiles,]
+        The sample quantiles computed at 'q'.
+    
+    """
+
+    x = np.atleast_1d(x)
+    q = np.atleast_1d(q)
+
+    if weights is None:
+        return np.percentile(x, 100.0 * q)
+    else:
+        weights = np.atleast_1d(weights)
+        idx = np.argsort(x, axis=0)
+
+        res = []
+        for i in range(x.shape[1]):
+            sw = weights[idx[:,i]]
+            cdf = np.cumsum(sw)[:-1]
+            cdf /= cdf[-1]
+            cdf = np.append(0, cdf)
+            res.append(np.interp(q, cdf, x[idx[:,i],i]))
+        return np.array(res).T
