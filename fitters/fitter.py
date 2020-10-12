@@ -70,10 +70,11 @@ def _plot_mcmc_traces(Ndim, samples, paramsNames):
 
 
 class ESSampler:
-    def __init__(self, paramsInit, posterior, 
+    def __init__(self, posterior, paramsInit, paramsBounds,
                     Nsteps=2000, Nburn=1000, Nwalkers=100,
                     paramsNames=None):
         self.paramsInit = paramsInit
+        self.paramsBounds = paramsBounds
         self.posterior = posterior
 
         self.Nburn=Nburn
@@ -95,7 +96,7 @@ class ESSampler:
         # run mcmc with ensemble sampler
         if verbose: print("enabling Ensemble sampler.")
         pos0 = [self.paramsInit + 1.0e-8*np.random.randn(self.Ndim) for j in range(self.Nwalkers)]
-        sampler = emcee.EnsembleSampler(self.Nwalkers, self.Ndim, self.posterior)
+        sampler = emcee.EnsembleSampler(self.Nwalkers, self.Ndim, self.posterior, args=[self.paramsBounds])
 
         # burn-in
         if verbose: print("start burning in. Nburn:", self.Nburn)
@@ -141,8 +142,7 @@ class ESSampler:
                         'acceptanceFraction':self.acceptanceFraction,
                         'samples':self.samples,
                         'Ndim':self.Ndim, 'Nwalkers':self.Nwalkers,
-                        'Nburn':self.Nburn, 'Nsteps':self.Nsteps,
-                        'posterior':self.posterior}
+                        'Nburn':self.Nburn, 'Nsteps':self.Nsteps}
         return self.diagnostics
 
     def to_data(self, filepath):

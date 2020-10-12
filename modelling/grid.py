@@ -478,10 +478,21 @@ class grid:
         for iax, ystr in enumerate(ystrs):
             x = samples[:,np.where(np.array(estimates) == xstr)[0][0]]
             y = samples[:,np.where(np.array(estimates) == ystr)[0][0]]
-            axes[iax].scatter(x, y, marker='.', c=zvals, cmap='jet', s=1)
+            im = axes[iax].scatter(x, y, marker='.', c=zvals, cmap='jet', s=1)
             axes[iax].set_xlabel(xstr)
             axes[iax].set_ylabel(ystr)
-            axes[iax].axis(quantile(x, (0.002, 0.998)).tolist()+quantile(y, (0.002, 0.998)).tolist())
+            axes[iax].set_xlim(quantile(x, (0.998, 0.002)).tolist())
+            if ystr in delta_nu+nu_max+log_g:
+                axes[iax].set_ylim(quantile(y, (0.998, 0.002)).tolist())
+            else:
+                axes[iax].set_ylim(quantile(y, (0.002, 0.998)).tolist())
+
+        # fig..colorbar(im, ax=axes, orientation='vertical').set_label('Log(likelihood)')     
+        # plt.tight_layout()
+
+        fig.subplots_adjust(right=0.88)
+        cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
+        fig.colorbar(im, cax=cbar_ax, orientation='vertical').set_label('Log(likelihood)')    
 
         return fig 
 
@@ -527,8 +538,8 @@ class grid:
         # plot best model l=2
         for l in range(4):
             styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
-            axes[0].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-            axes[0].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l] + delta_nu, **styles)
+            axes[1].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
+            axes[1].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l] + delta_nu, **styles)
 
         mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][np.nanargmin(model_chi2)] for i in range(len(model_parameters))]
         # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
@@ -541,13 +552,13 @@ class grid:
 
         for l in [0,2]:
             styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
-            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l] + delta_nu, **styles)
+            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
+            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l] + delta_nu, **styles)
 
             # surface corrected
             styles = {'marker':markers[l], 'edgecolor':'black', 'facecolor':'None', 'zorder':2}
-            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l] + delta_nu, **styles)
+            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
+            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l] + delta_nu, **styles)
 
 
         # # plot top 10 models

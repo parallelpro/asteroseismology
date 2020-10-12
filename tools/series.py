@@ -188,6 +188,7 @@ def medianFilter(x, y, period, yerr=None):
     if yerr==None: iferror=False
     binsize = np.median(x[1:-1]-x[0:-2])
     kernelsize = int(period/binsize)
+    if kernelsize%2==0: kernelsize+=1
     from scipy.signal import medfilt
     yf = medfilt(y,kernel_size=kernelsize)
     ynew = y/yf #y-yf

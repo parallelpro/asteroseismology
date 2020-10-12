@@ -40,8 +40,9 @@ class solarlikeGlobalSeismo:
         if verbose: print('  2d-acf numax: {:0.3f}'.format(numax_diagnostics['cacf_numax']))
 
         if verbose: print("> Using acf to determine Delta_nu.")
-        dnu_diagnostics = self.get_dnu(numax_diagnostics['cacf_numax'])
-        if verbose: print('  ACF dnu: {:0.3f}'.format(dnu_diagnostics['acf_dnu']))
+        Dnu_diagnostics = self.get_Dnu(numax_diagnostics['cacf_numax'])
+        if verbose: print('  ACF Dnu: {:0.3f}'.format(Dnu_diagnostics['acf_Dnu']))
+        if verbose: print('  Collapse Dnu: {:0.3f}'.format(Dnu_diagnostics['collapse_Dnu']))
 
         if verbose: print("> Fitting background to accurately determine nu_max.")
         bg_diagnostics = self.get_background(numax_diagnostics['cacf_numax'], verbose=verbose)
@@ -50,26 +51,26 @@ class solarlikeGlobalSeismo:
 
         # save
         if verbose: print('> Plotting.')
-        self.to_plot(numax_diagnostics, dnu_diagnostics, bg_diagnostics, 1)
+        self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, 1)
 
         if verbose: print('> Saving.')
-        self.to_data(cacf_numax=numax_diagnostics, acf_dnu=dnu_diagnostics,
+        self.to_data(cacf_numax=numax_diagnostics, acf_Dnu=Dnu_diagnostics,
                      psfit_bg=bg_diagnostics)
         return
 
-    # def run2(self, numax_diagnostics, dnu_diagnostics, bg_diagnostics, verbose=True):
-    #     if verbose: print('>>> Processing star {:s}.'.format(self.starID))
+    def run2(self, numax_diagnostics, Dnu_diagnostics, bg_diagnostics, verbose=True):
+        if verbose: print('>>> Processing star {:s}.'.format(self.starID))
 
-    #     if verbose: print('> Fitting p-mode asymptotics.')
-    #     pmode_diagnostics = self.get_pmode_asymp(numax_diagnostics['cacf_numax'])
+        if verbose: print('> Fitting p-mode asymptotics.')
+        pmode_diagnostics = self.get_pmode_asymp(numax_diagnostics['cacf_numax'])
 
-    #     if verbose: print('> Plotting.')
-    #     self.to_plot(numax_diagnostics, dnu_diagnostics, bg_diagnostics, pmode_diagnostics)
+        if verbose: print('> Plotting.')
+        self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, pmode_diagnostics)
 
-    #     # if verbose: print('> Saving.')
-    #     # self.to_data(cacf_numax=numax_diagnostics, acf_dnu=dnu_diagnostics,
-    #     #              psfit_bg=bg_diagnostics, pmode_asymp=pmode_diagnostics)
-    #     return
+        # if verbose: print('> Saving.')
+        # self.to_data(cacf_numax=numax_diagnostics, acf_Dnu=Dnu_diagnostics,
+        #              psfit_bg=bg_diagnostics, pmode_asymp=pmode_diagnostics)
+        return
 
     def get_numax(self):
         # use 2d ACF to get a rough estimation on numax
@@ -137,8 +138,8 @@ class solarlikeGlobalSeismo:
                 ampHarvey[2], freqHarvey[2], powerHarvey[2]]
         paramsBounds = [[flatNoiseLevel*0.1, flatNoiseLevel*1.1], 
                   [heightOsc*0.2, heightOsc*5.0],
-                  [numax*0.8, numax*1.2],
-                  [widthOsc*0.5, widthOsc*4.0],
+                  [numax*0.5, numax*2.0],
+                  [widthOsc*0.1, widthOsc*4.0],
                   [ampHarvey[0]*0.3, ampHarvey[0]*3.0],
                   [freqHarvey[0]*0.2, freqHarvey[0]*5.0],
                   [2.0, 8.0],
@@ -161,17 +162,35 @@ class solarlikeGlobalSeismo:
         paramsInit, paramsBounds, paramsNames = self._guessBackgroundParams(self.freq, self.powerGlobalSmoothed, numax)
 
         fitterOutput, fitterResidual = [[0,0,0] for i in range(2)]
+        fitters = []
         for NHarvey in range(1,4):
             def chi2(params):
                 residual = np.sum((self.power-standardBackgroundModel(self.freq, 
                                 params[:4+NHarvey*3], self.fnyq, NHarvey=NHarvey))**2.)
                 return residual
-            fitter = LSSampler(chi2, paramsInit[:4+NHarvey*3], paramsBounds[:4+NHarvey*3],
-                        paramsNames=paramsNames[:4+NHarvey*3])
-            fitterOutput[NHarvey-1] = fitter.run(wrapper='minimize')
+
+            def lnpost(params, paramsBounds):
+                for ipara, para in enumerate(params):
+                    if not (paramsBounds[ipara][0] <= para <= paramsBounds[ipara][1]):
+                        return -np.inf
+                residual = np.sum((self.power-standardBackgroundModel(self.freq, 
+                                params[:4+NHarvey*3], self.fnyq, NHarvey=NHarvey))**2.)
+                lnpost = -residual/2.
+                return lnpost
+
+            fitter = ESSampler(lnpost, paramsInit[:4+NHarvey*3], paramsBounds[:4+NHarvey*3], paramsNames=paramsNames[:4+NHarvey*3])
+            fitters.append(fitter)
+            fitterOutput[NHarvey-1] = fitter.run(verbose=verbose)
             fitterResidual[NHarvey-1] = chi2(fitterOutput[NHarvey-1]['paramsMax'])
+
+            # fitter = LSSampler(chi2, paramsInit[:4+NHarvey*3], paramsBounds[:4+NHarvey*3],
+            #             paramsNames=paramsNames[:4+NHarvey*3])
+            # fitterOutput[NHarvey-1] = fitter.run(wrapper='minimize')
+            # fitterResidual[NHarvey-1] = chi2(fitterOutput[NHarvey-1]['paramsMax'])
+
             if verbose: print('   No. of Harvey = {:0.0f}, chi2: {:0.5f}'.format(NHarvey, fitterResidual[NHarvey-1]))
         fitterDiagnostic = fitterOutput[np.nanargmin(fitterResidual)]
+        fitters[np.nanargmin(fitterResidual)].to_plot(self.filepath+'background_')
 
         NHarvey = int((len(fitterDiagnostic['paramsMax'])-4)/3)
         powerBackground = standardBackgroundModel(self.freq, fitterDiagnostic['paramsMax'], 
@@ -185,41 +204,70 @@ class solarlikeGlobalSeismo:
                         'powerFit':powerFit, 'powerSNR':powerSNR}
         return self.bg_diagnostics
 
+    def get_collapsed_spectrum(self, numax, freq, power, collapseLength):
+        freqStart = int(numax/collapseLength-5+0.5)*collapseLength #49.0192
+        freqGrid = np.arange(0., collapseLength, 0.001)
+        collapse_power = np.zeros(len(freqGrid))
+        for i in range(11):
+            collapse_power += np.interp(freqStart+i*collapseLength+freqGrid, freq, power)
 
-    def get_dnu(self, numax):
-        # Determine dnu by acf
-        dnu_guess = 0.263*numax**0.772
-        idx = (self.freq>(numax-7*dnu_guess)) & (self.freq<(numax+7*dnu_guess))
+        freq_collapse = np.concatenate([freqGrid, freqGrid+collapseLength])
+        power_collapse = np.concatenate([collapse_power, collapse_power])
+        powers_collapse = smoothWrapper(freq_collapse, power_collapse, collapseLength/10., 'bartlett')
+
+        return freq_collapse, power_collapse, powers_collapse
+
+    def get_Dnu(self, numax):
+        # method 1 - Determine Dnu by acf
+        Dnu_guess = 0.263*numax**0.772
+        idx = (self.freq>(numax-7*Dnu_guess)) & (self.freq<(numax+7*Dnu_guess))
         freq, power = self.freq[idx], self.power[idx]
 
-        powers = smoothWrapper(freq, power, 0.1*dnu_guess, "bartlett")
+        powers = smoothWrapper(freq, power, 0.1*Dnu_guess, "bartlett")
 
         lag, acf = a_correlate(freq, powers) # acf
-        acfs = smoothWrapper(lag, acf, 0.1*dnu_guess, "bartlett") # smooth acf
+        acfs = smoothWrapper(lag, acf, 0.1*Dnu_guess, "bartlett") # smooth acf
 
-        # Use peak-finding algorithm to extract dnu in ACF
-        idx = (lag>0.66*dnu_guess) & (lag<1.33*dnu_guess)
-        index = peakutils.peak.indexes(acfs[idx], min_dist=int(dnu_guess/np.median(np.diff(freq))))
+        # Use peak-finding algorithm to extract Dnu in ACF
+        idx = (lag>0.66*Dnu_guess) & (lag<1.33*Dnu_guess)
+        index = peakutils.peak.indexes(acfs[idx], min_dist=int(Dnu_guess/np.median(np.diff(freq))))
 
         if len(index) != 0:
             peaks_lags, peaks_amps = lag[idx][index], acfs[idx][index]
-            acf_dnu = peaks_lags[np.nanargmax(peaks_amps)]
-            acf_dnu_amp = peaks_amps[np.nanargmax(peaks_amps)]
+            acf_Dnu = peaks_lags[np.nanargmax(peaks_amps)]
+            acf_Dnu_amp = peaks_amps[np.nanargmax(peaks_amps)]
         else:
-            acf_dnu, acf_dnu_amp = np.nan, np.nan
+            acf_Dnu, acf_Dnu_amp = np.nan, np.nan
+
+        # method 2 - Determine Dnu by collapsing the power spectrum
+
+        length = Dnu_guess + np.arange(-0.33,0.33,np.median(np.diff(freq)))*Dnu_guess
+        maxPower = np.zeros(len(length)) 
+        for iunit, unit in enumerate(length):
+            # collapsed diagrams
+            _, _, powers_collapse = self.get_collapsed_spectrum(numax, freq, power, unit)
+            maxPower[iunit] = np.max(powers_collapse)
+
+        collapse_Dnu = length[np.argmax(maxPower)]
+        collapse_Dnu_power = maxPower[np.argmax(maxPower)]
+
+        # collapsed spectrum for plotting
+        freq_collapse, power_collapse, powers_collapse = self.get_collapsed_spectrum(numax, freq, power, collapse_Dnu)
 
         # create and return the object containing the result
-        self.dnu_diagnostics = {'lag':lag, 'acf':acf, 'acfs':acfs,
-                            'acf_dnu':acf_dnu,'acf_dnu_amp':acf_dnu_amp,
-                            'dnu_guess':dnu_guess}
-
-        return self.dnu_diagnostics
+        self.Dnu_diagnostics = {'Dnu_guess':Dnu_guess,
+                            'lag':lag, 'acf':acf, 'acfs':acfs,
+                            'acf_Dnu':acf_Dnu, 'acf_Dnu_amp':acf_Dnu_amp,
+                            'length':length, 'maxPower':maxPower, 
+                            'collapse_Dnu':collapse_Dnu, 'collapse_Dnu_power':collapse_Dnu_power,
+                            'freq_collapse':freq_collapse, 'power_collapse':power_collapse, 'powers_collapse':powers_collapse}
+        return self.Dnu_diagnostics
 
 
     def get_pmode_asymp(self, numax):
         
-        dnu_guess = 0.263*numax**0.772
-        idx = (self.freq>=numax-8*dnu_guess)&(self.freq<=numax+8*dnu_guess)
+        Dnu_guess = 0.263*numax**0.772
+        idx = (self.freq>=numax-8*Dnu_guess)&(self.freq<=numax+8*Dnu_guess)
         x, y = self.freq[idx], self.power[idx]
         fs = np.median(np.diff(x))
         numax_j = np.nanargmin(np.abs(x-numax))
@@ -251,18 +299,18 @@ class solarlikeGlobalSeismo:
             delta_nu, dnu_01, dnu_02, A0, A1, A2, fwhm0, fwhm1, fwhm2, C, offset = theta
 
             # priors for unkown model parameters
-            boo = (0.7*dnu_guess<delta_nu<1.3*dnu_guess) & (0.035*dnu_guess<fwhm0<0.35*dnu_guess) \
-                & (0.035*dnu_guess<fwhm1<0.35*dnu_guess) \
-                & (0.035*dnu_guess<fwhm2<0.35*dnu_guess) \
+            boo = (0.7*Dnu_guess<delta_nu<1.3*Dnu_guess) & (0.035*Dnu_guess<fwhm0<0.35*Dnu_guess) \
+                & (0.035*Dnu_guess<fwhm1<0.35*Dnu_guess) \
+                & (0.035*Dnu_guess<fwhm2<0.35*Dnu_guess) \
                 & (0.001<C<0.1) & (0.<offset<1.0) \
                 & (A0>0) & (A1>0) & (A2>0)
             if boo:
                 lnprior = 0.
             else:
                 return -np.inf
-            lnprior += normal(delta_nu, dnu_guess, 0.15*dnu_guess)
-            lnprior += normal(dnu_01, -0.025*dnu_guess, 0.1*dnu_guess)
-            lnprior += normal(dnu_02, 0.121*dnu_guess+0.047, 0.1*dnu_guess)
+            lnprior += normal(delta_nu, Dnu_guess, 0.15*Dnu_guess)
+            lnprior += normal(dnu_01, -0.025*Dnu_guess, 0.1*Dnu_guess)
+            lnprior += normal(dnu_02, 0.121*Dnu_guess+0.047, 0.1*Dnu_guess)
             lnprior += normal(A0, 1.0, 0.3)
             lnprior += normal(A1, 1.0, 0.3)
             lnprior += normal(A2, 0.8, 0.15)
@@ -274,8 +322,8 @@ class solarlikeGlobalSeismo:
             lnlike = -np.sum(yFoldObs/yFoldMod+np.log(yFoldMod))*6.
             return lnprior + lnlike
 
-        paramsInit = [dnu_guess, -0.025*dnu_guess, 0.121*dnu_guess+0.047,
-                    1.0, 1.0, 0.8, 0.25*dnu_guess, 0.25*dnu_guess, 0.25*dnu_guess, 
+        paramsInit = [Dnu_guess, -0.025*Dnu_guess, 0.121*Dnu_guess+0.047,
+                    1.0, 1.0, 0.8, 0.25*Dnu_guess, 0.25*Dnu_guess, 0.25*Dnu_guess, 
                     0.05, 0.5]
         sampler = ESSampler(paramsInit, posterior, Nsteps=1000, Nburn=3000)
         diagnostics = sampler.run(verbose=True)
@@ -287,107 +335,118 @@ class solarlikeGlobalSeismo:
         return self.pmode_diagnostics
 
 
-    def to_plot(self, numax_diagnostics, dnu_diagnostics, bg_diagnostics, pmode_diagnostics):
+    def to_plot(self, numax_diagnostics, Dnu_diagnostics, bg_diagnostics, pmode_diagnostics):
         _, axes = plt.subplots(figsize=(16,16), nrows=3, ncols=3, squeeze=False)
 
-        # plot A, original flux
+        # plot A, flux in thirty days
         # axes[0,0]
 
         # plot B, corrected flux
         # axes[1,0]
 
-        # plot C, smoothed power spectra
+        # col 1: numax
+        # plot A, 2d-acf
+        axes[0,0].contourf(numax_diagnostics['freqCenters'], 
+                            np.arange(0,numax_diagnostics['acf2d'].shape[0]), 
+                            numax_diagnostics['acf2d'], cmap='gray_r')
+        axes[0,0].set_xlabel('$\\nu$ ($\\mu$Hz)')
+        axes[0,0].set_ylabel('Normalized lag')
+        axes[0,0].set_xscale('log')
+
+        # plot B, cacf
+        # axes[1,0].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacf'], 'b-')
+        axes[1,0].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacf'], color='C0')
+        axes[1,0].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacfDetrend'], color='gray')
+        axes[1,0].axvline(numax_diagnostics['cacf_numax'], color='r',linestyle='--')
+        axes[1,0].set_xlabel('$\\nu$ ($\\mu$Hz)')
+        axes[1,0].set_ylabel('Collapsed 2d-ACF')
+        axes[1,0].set_xscale('log')
+        axes[1,0].text(0.95,0.95,'2d-acf numax: {:0.3f}'.format(numax_diagnostics['cacf_numax']), 
+                        transform=axes[1,0].transAxes, va='top', ha='right')
+
+        # plot C, fitted power spectra
+        powerBackground = standardBackgroundModel(self.freq, bg_diagnostics['paramsMax'], 
+                            self.fnyq, NHarvey=bg_diagnostics['NHarvey'], ifReturnOscillation=False)
+        powerFit = standardBackgroundModel(self.freq, bg_diagnostics['paramsMax'], 
+                            self.fnyq, NHarvey=bg_diagnostics['NHarvey'], ifReturnOscillation=True)
         axes[2,0].plot(self.freq, self.power, color='gray')
-        axes[2,0].plot(self.freq, self.powerGlobalSmoothed, color='red')
+        axes[2,0].plot(self.freq, self.powerGlobalSmoothed, color='black')
+        axes[2,0].plot(self.freq, powerBackground, color='green')
+        axes[2,0].plot(self.freq, powerFit, color='green', linestyle='--')
+        axes[2,0].axhline(bg_diagnostics['paramsMax'][0], color='black', linestyle='--')
+        axes[2,0].axvline(bg_diagnostics['paramsMax'][2], color='red', linestyle='--')
         axes[2,0].set_xlabel('$\\nu$ ($\\mu$Hz)')
         axes[2,0].set_ylabel('Power')
         axes[2,0].set_xlim(np.min(self.freq), np.max(self.freq))
         axes[2,0].set_xscale('log')
         axes[2,0].set_yscale('log')
+        axes[2,0].text(0.05,0.05,'NHarvey: {:0.0f}'.format(bg_diagnostics['NHarvey']),
+                        transform=axes[2,0].transAxes, va='bottom', ha='left')
+        axes[2,0].text(0.05,0.10,'Fitted numax: {:0.3f}'.format(bg_diagnostics['paramsMax'][2]),
+                        transform=axes[2,0].transAxes, va='bottom', ha='left')
 
-        # plot D, 2d-acf
-        axes[0,1].contourf(numax_diagnostics['freqCenters'], 
-                            np.arange(0,numax_diagnostics['acf2d'].shape[0]), 
-                            numax_diagnostics['acf2d'], cmap='gray_r')
+        # col 2: Dnu
+        # plot D, acf Dnu
+        axes[0,1].plot(Dnu_diagnostics['lag'], Dnu_diagnostics['acf'])
+        axes[0,1].axvline(Dnu_diagnostics['Dnu_guess']*0.66, color='gray',linestyle='--')
+        axes[0,1].axvline(Dnu_diagnostics['Dnu_guess']*1.33, color='gray',linestyle='--')
+        axes[0,1].plot([Dnu_diagnostics['acf_Dnu']], [Dnu_diagnostics['acf_Dnu_amp']], 'rx')
         axes[0,1].set_xlabel('$\\nu$ ($\\mu$Hz)')
-        axes[0,1].set_ylabel('Normalized lag')
-        axes[0,1].set_xscale('log')
+        axes[0,1].set_ylabel('ACF')
+        axes[0,1].text(0.95,0.95,'ACF Dnu: {:0.3f}'.format(Dnu_diagnostics['acf_Dnu']), 
+                        transform=axes[0,1].transAxes, va='top', ha='right')
 
-        # plot E, cacf
-        # axes[1,1].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacf'], 'b-')
-        axes[1,1].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacf'], color='C0')
-        axes[1,1].plot(numax_diagnostics['freqCenters'], numax_diagnostics['cacfDetrend'], color='gray')
-        axes[1,1].axvline(numax_diagnostics['cacf_numax'], color='r',linestyle='--')
-        axes[1,1].set_xlabel('$\\nu$ ($\\mu$Hz)')
-        axes[1,1].set_ylabel('Collapsed 2d-ACF')
-        axes[1,1].set_xscale('log')
-        axes[1,1].text(0.95,0.95,'2d-acf numax: {:0.3f}'.format(numax_diagnostics['cacf_numax']), 
+        # plot E, collapse Dnu
+        axes[1,1].plot(Dnu_diagnostics['length'], Dnu_diagnostics['maxPower'])
+        axes[1,1].axvline(Dnu_diagnostics['collapse_Dnu'], color='red',linestyle='--')
+        axes[1,1].set_xlabel('Length ($\\mu$Hz)')
+        axes[1,1].set_ylabel('Maximum Collapsed Power')
+        axes[1,1].text(0.95,0.95,'Collapse Dnu: {:0.3f}'.format(Dnu_diagnostics['collapse_Dnu']), 
                         transform=axes[1,1].transAxes, va='top', ha='right')
+        axes[1,1].axvline(Dnu_diagnostics['collapse_Dnu'], color='r',linestyle='--')
 
 
-        # plot F, fitted power spectra
-        powerBackground = standardBackgroundModel(self.freq, bg_diagnostics['paramsMax'], 
-                            self.fnyq, NHarvey=bg_diagnostics['NHarvey'], ifReturnOscillation=False)
-        powerFit = standardBackgroundModel(self.freq, bg_diagnostics['paramsMax'], 
-                            self.fnyq, NHarvey=bg_diagnostics['NHarvey'], ifReturnOscillation=True)
-        axes[2,1].plot(self.freq, self.power, color='gray')
-        axes[2,1].plot(self.freq, self.powerGlobalSmoothed, color='black')
-        axes[2,1].plot(self.freq, powerBackground, color='green')
-        axes[2,1].plot(self.freq, powerFit, color='green', linestyle='--')
-        axes[2,1].axhline(bg_diagnostics['paramsMax'][0], color='black', linestyle='--')
-        axes[2,1].axvline(bg_diagnostics['paramsMax'][2], color='red', linestyle='--')
-        axes[2,1].set_xlabel('$\\nu$ ($\\mu$Hz)')
-        axes[2,1].set_ylabel('Power')
-        axes[2,1].set_xlim(np.min(self.freq), np.max(self.freq))
-        axes[2,1].set_xscale('log')
-        axes[2,1].set_yscale('log')
-        axes[2,1].text(0.05,0.05,'NHarvey: {:0.0f}'.format(bg_diagnostics['NHarvey']),
-                        transform=axes[2,1].transAxes, va='bottom', ha='left')
-        axes[2,1].text(0.05,0.10,'Fitted numax: {:0.3f}'.format(bg_diagnostics['paramsMax'][2]),
-                        transform=axes[2,1].transAxes, va='bottom', ha='left')
+        # plot F, collapsed power spectrum
+        axes[2,1].plot(Dnu_diagnostics['freq_collapse'], Dnu_diagnostics['power_collapse'])
+        axes[2,1].plot(Dnu_diagnostics['freq_collapse'], Dnu_diagnostics['powers_collapse'])
+        axes[2,1].axvline(Dnu_diagnostics['collapse_Dnu'], color='gray',linestyle='--')
+        axes[2,1].set_xlabel('Frequency ($\\mu$Hz)')
+        axes[2,1].set_ylabel('Collapsed Power')
 
-        # plot G, acf
-        axes[0,2].plot(dnu_diagnostics['lag'], dnu_diagnostics['acf'])
-        axes[0,2].axvline(dnu_diagnostics['dnu_guess']*0.66, color='gray',linestyle='--')
-        axes[0,2].axvline(dnu_diagnostics['dnu_guess']*1.33, color='gray',linestyle='--')
-        axes[0,2].plot([dnu_diagnostics['acf_dnu']], [dnu_diagnostics['acf_dnu_amp']], 'rx')
-        axes[0,2].set_xlabel('$\\nu$ ($\\mu$Hz)')
-        axes[0,2].set_ylabel('ACF')
-        axes[0,2].text(0.95,0.95,'ACF dnu: {:0.3f}'.format(dnu_diagnostics['acf_dnu']), 
-                        transform=axes[0,2].transAxes, va='top', ha='right')
+        # col 3: asymptotics
+        # # plot G,
 
         # # plot H, asymptotic p fitting
         # x = np.linspace(0,1,len(pmode_diagnostics['yFoldObs']))*pmode_diagnostics['paramsMax'][0]
         # axes[1,2].plot(x, pmode_diagnostics['yFoldObs'], color='C0')
         # axes[1,2].plot(x, pmode_diagnostics['yFoldMod'], color='black')
         # axes[1,2].axvline(pmode_diagnostics['paramsMax'][0]*pmode_diagnostics['paramsMax'][-1], color='red', linestyle='--')
-        # axes[1,2].text(0.95,0.95,'aysmp dnu: {:0.3f}'.format(pmode_diagnostics['paramsMax'][0]), 
+        # axes[1,2].text(0.95,0.95,'aysmp Dnu: {:0.3f}'.format(pmode_diagnostics['paramsMax'][0]), 
         #                 transform=axes[1,2].transAxes, va='top', ha='right')
         # axes[1,2].text(0.95,0.90,'aysmp eps: {:0.3f}'.format(pmode_diagnostics['epsp']), 
         #                 transform=axes[1,2].transAxes, va='top', ha='right')
 
-
         # plot I, echelle
         # axes[2,2]
         numax = numax_diagnostics['cacf_numax']
-        dnu = 0.263*numax**0.772
-        powerSmoothed = smoothWrapper(self.freq, self.power, dnu*0.03, 'flat')
+        Dnu = Dnu_diagnostics['acf_Dnu']
+        powerSmoothed = smoothWrapper(self.freq, self.power, Dnu*0.03, 'flat')
         echx, echy, echz = echelle(self.freq, powerSmoothed, 
-                    dnu, numax-dnu*8, numax+dnu*8, echelletype="replicated")
+                    Dnu, numax-Dnu*8, numax+Dnu*8, echelletype="replicated")
         levels = np.linspace(np.min(echz), np.max(echz), 500)
         axes[2,2].contourf(echx, echy, echz, cmap="jet", levels=levels)
         axes[2,2].axis([np.min(echx), np.max(echx), np.min(echy), np.max(echy)])
-        axes[2,2].set_xlabel("$\\nu$  mod {:0.2f} ($\\mu$Hz)".format(dnu))
+        axes[2,2].set_xlabel("$\\nu$  mod {:0.2f} ($\\mu$Hz)".format(Dnu))
         axes[2,2].set_ylabel('$\\nu$ ($\\mu$Hz)')
-        # axes[2,2].axvline(dnu, color='black', linestyle='--')
+        # axes[2,2].axvline(Dnu, color='black', linestyle='--')
         # axes[2,2].axhline(bg_diagnostics['paramsMax'][2], color='black', linestyle='--')
 
         # save
-        plt.savefig(self.filepath+self.starID+'.png')
+        plt.savefig(self.filepath+self.starID+'_global.png')
         plt.close() 
         return
 
     def to_data(self, **kwargs):
         data = kwargs
-        np.save(self.filepath+self.starID+'', data)
+        np.save(self.filepath+self.starID+'_global', data)
         return
