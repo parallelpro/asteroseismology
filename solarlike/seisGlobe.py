@@ -12,6 +12,7 @@ LSSampler, ESSampler, echelle)
 from wotan import flatten
 import peakutils
 from scipy.signal import detrend 
+from geneticalgorithm import geneticalgorithm
 
 __all__ = ['solarlikeGlobalSeismo']
 
@@ -49,13 +50,22 @@ class solarlikeGlobalSeismo:
         if verbose: print('  NHarvey: {:0.0f}'.format(bg_diagnostics['NHarvey']))
         if verbose: print('  Fitted numax: {:0.3f}'.format(bg_diagnostics['paramsMax'][2]))
 
+        if verbose: print('> Fitting p mode asymptotic parameters (epsp, alphap, Dnu).')
+        pmode_diagnostics = self.get_pmode_asymp(bg_diagnostics['paramsMax'][1], # heightOsc
+                                                bg_diagnostics['paramsMax'][2], # numax
+                                                bg_diagnostics['paramsMax'][3], # widthOsc
+                                                Dnu_diagnostics['acf_Dnu']) # Dnu
+        if verbose: print('  Fitted epsp: {:0.3f}'.format(pmode_diagnostics['epsp'])) 
+        if verbose: print('  Fitted alphap: {:0.5f}'.format(pmode_diagnostics['alphap'])) 
+        if verbose: print('  Fitted Dnu: {:0.3f}'.format(pmode_diagnostics['Dnu']))                                     
+
         # save
         if verbose: print('> Plotting.')
         self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, 1)
 
         if verbose: print('> Saving.')
         self.to_data(cacf_numax=numax_diagnostics, acf_Dnu=Dnu_diagnostics,
-                     psfit_bg=bg_diagnostics)
+                     psfit_bg=bg_diagnostics, pmode_asymp=pmode_diagnostics)
         return
 
     def run2(self, numax_diagnostics, Dnu_diagnostics, bg_diagnostics, verbose=True):
@@ -264,74 +274,129 @@ class solarlikeGlobalSeismo:
         return self.Dnu_diagnostics
 
 
-    def get_pmode_asymp(self, numax):
+    # def get_pmode_asymp(self, numax):
         
-        Dnu_guess = 0.263*numax**0.772
-        idx = (self.freq>=numax-8*Dnu_guess)&(self.freq<=numax+8*Dnu_guess)
+    #     Dnu_guess = 0.263*numax**0.772
+    #     idx = (self.freq>=numax-8*Dnu_guess)&(self.freq<=numax+8*Dnu_guess)
+    #     x, y = self.freq[idx], self.power[idx]
+    #     fs = np.median(np.diff(x))
+    #     numax_j = np.nanargmin(np.abs(x-numax))
+
+    #     def normal(theta, mu, sigma):
+    #         return np.log(1.0/(np.sqrt(2*np.pi)*sigma))-0.5*(theta-mu)**2/sigma**2
+
+    #     def model(theta):
+    #         delta_nu, dnu_01, dnu_02, A0, A1, A2, fwhm0, fwhm1, fwhm2, C, offset = theta
+    #         Nbin = np.int(delta_nu/fs)
+    #         yFoldObs = (y[numax_j-3*Nbin:numax_j-2*Nbin] + y[numax_j-2*Nbin:numax_j-Nbin] + 
+    #                     y[numax_j-Nbin:numax_j] + y[numax_j:numax_j+Nbin] +
+    #                     y[numax_j+Nbin:numax_j+Nbin*2] + y[numax_j+Nbin*2:numax_j+Nbin*3])
+    #         yFoldObs /= np.max(yFoldObs)
+    #         nu0 = offset*delta_nu 
+    #         nu1 = nu0 - 0.5*delta_nu + dnu_01 
+    #         nu2 = nu0 - dnu_02
+    #         tx = np.linspace(0,1,Nbin)*delta_nu-delta_nu/2.
+    #         y0 = A0/(1+(tx)**2./(fwhm0**2./4.))
+    #         y0 = y0[np.argsort((tx+nu0)%delta_nu)]
+    #         y1 = A1/(1+(tx)**2./(fwhm1**2./4.))
+    #         y1 = y1[np.argsort((tx+nu1)%delta_nu)]
+    #         y2 = A2/(1+(tx)**2./(fwhm2**2./4.))
+    #         y2 = y2[np.argsort((tx+nu2)%delta_nu)]
+    #         yFoldMod = y0+y1+y2+C 
+    #         return yFoldObs, yFoldMod
+
+    #     def posterior(theta):
+    #         delta_nu, dnu_01, dnu_02, A0, A1, A2, fwhm0, fwhm1, fwhm2, C, offset = theta
+
+    #         # priors for unkown model parameters
+    #         boo = (0.7*Dnu_guess<delta_nu<1.3*Dnu_guess) & (0.035*Dnu_guess<fwhm0<0.35*Dnu_guess) \
+    #             & (0.035*Dnu_guess<fwhm1<0.35*Dnu_guess) \
+    #             & (0.035*Dnu_guess<fwhm2<0.35*Dnu_guess) \
+    #             & (0.001<C<0.1) & (0.<offset<1.0) \
+    #             & (A0>0) & (A1>0) & (A2>0)
+    #         if boo:
+    #             lnprior = 0.
+    #         else:
+    #             return -np.inf
+    #         lnprior += normal(delta_nu, Dnu_guess, 0.15*Dnu_guess)
+    #         lnprior += normal(dnu_01, -0.025*Dnu_guess, 0.1*Dnu_guess)
+    #         lnprior += normal(dnu_02, 0.121*Dnu_guess+0.047, 0.1*Dnu_guess)
+    #         lnprior += normal(A0, 1.0, 0.3)
+    #         lnprior += normal(A1, 1.0, 0.3)
+    #         lnprior += normal(A2, 0.8, 0.15)
+
+    #         # expected value of outcome
+    #         yFoldObs, yFoldMod = model(theta)
+
+    #         # likelihood (sampling distribution) of observations
+    #         lnlike = -np.sum(yFoldObs/yFoldMod+np.log(yFoldMod))*6.
+    #         return lnprior + lnlike
+
+    #     paramsInit = [Dnu_guess, -0.025*Dnu_guess, 0.121*Dnu_guess+0.047,
+    #                 1.0, 1.0, 0.8, 0.25*Dnu_guess, 0.25*Dnu_guess, 0.25*Dnu_guess, 
+    #                 0.05, 0.5]
+    #     sampler = ESSampler(paramsInit, posterior, Nsteps=1000, Nburn=3000)
+    #     diagnostics = sampler.run(verbose=True)
+    #     yFoldObs, yFoldMod = model(diagnostics['paramsMax'])
+    #     epsp = (numax/diagnostics['paramsMax'][0]+diagnostics['paramsMax'][-1]) % 1.
+
+    #     self.pmode_diagnostics = {**diagnostics, 'model':model, 
+    #         'yFoldObs':yFoldObs, 'yFoldMod':yFoldMod, 'epsp':epsp}
+    #     return self.pmode_diagnostics
+
+    def get_pmode_asymp(self, height, numax, width, Dnu):
+        # Gaussian envolope corrected power spectrum
+        idx = (self.freq>=numax-2*width)&(self.freq<=numax+2*width)
         x, y = self.freq[idx], self.power[idx]
-        fs = np.median(np.diff(x))
-        numax_j = np.nanargmin(np.abs(x-numax))
+        ys = smoothWrapper(x, y, Dnu/30.0, 'bartlett')
+        weight = height*np.exp(-(x-numax)**2.0/(2*width**2.))
+        meanBGLevel = np.percentile(y, 20)
+        y /= weight*meanBGLevel
+        ys /= weight*meanBGLevel
 
-        def normal(theta, mu, sigma):
-            return np.log(1.0/(np.sqrt(2*np.pi)*sigma))-0.5*(theta-mu)**2/sigma**2
+        def merit(theta):
+            tepsp, tDnu, talphap, td02 = theta
+            ns = np.arange((numax-width)/tDnu, (numax+width)/tDnu, 1, dtype=int)
+            A = talphap
+            B = -2*numax*talphap-2*tDnu
+            C = numax**2.*talphap + 2*tDnu**2.*(ns+tepsp)
+            nu0s = (-B-(B**2-4*A*C)**0.5)/(2*A)
+            nu2s = nu0s - td02*tDnu
+            
+            freqGrid = np.arange(-tDnu/20., tDnu/20., 0.001)
+            powerCollapse = np.zeros(len(freqGrid))
+            for nu0 in nu0s:
+                powerCollapse += np.log(np.interp(freqGrid+nu0, x, ys))
+            for nu2 in nu2s:
+                powerCollapse += np.log(np.interp(freqGrid+nu2, x, ys))
+            powerCollapse = np.exp(powerCollapse) * np.bartlett(len(freqGrid))
+            metric = np.max(powerCollapse)
+            
+            return -metric
 
-        def model(theta):
-            delta_nu, dnu_01, dnu_02, A0, A1, A2, fwhm0, fwhm1, fwhm2, C, offset = theta
-            Nbin = np.int(delta_nu/fs)
-            yFoldObs = (y[numax_j-3*Nbin:numax_j-2*Nbin] + y[numax_j-2*Nbin:numax_j-Nbin] + 
-                        y[numax_j-Nbin:numax_j] + y[numax_j:numax_j+Nbin] +
-                        y[numax_j+Nbin:numax_j+Nbin*2] + y[numax_j+Nbin*2:numax_j+Nbin*3])
-            yFoldObs /= np.max(yFoldObs)
-            nu0 = offset*delta_nu 
-            nu1 = nu0 - 0.5*delta_nu + dnu_01 
-            nu2 = nu0 - dnu_02
-            tx = np.linspace(0,1,Nbin)*delta_nu-delta_nu/2.
-            y0 = A0/(1+(tx)**2./(fwhm0**2./4.))
-            y0 = y0[np.argsort((tx+nu0)%delta_nu)]
-            y1 = A1/(1+(tx)**2./(fwhm1**2./4.))
-            y1 = y1[np.argsort((tx+nu1)%delta_nu)]
-            y2 = A2/(1+(tx)**2./(fwhm2**2./4.))
-            y2 = y2[np.argsort((tx+nu2)%delta_nu)]
-            yFoldMod = y0+y1+y2+C 
-            return yFoldObs, yFoldMod
+        bounds = np.array([[0., 1.0], #epsp
+                         [Dnu*0.8, Dnu*1.2], # Dnu
+                         [0., 0.008], # alphap
+                         [0.05, 0.15]]) # d02
 
-        def posterior(theta):
-            delta_nu, dnu_01, dnu_02, A0, A1, A2, fwhm0, fwhm1, fwhm2, C, offset = theta
+        model=geneticalgorithm(function=merit,dimension=4,variable_type='real',variable_boundaries=bounds)
+        model.run()
 
-            # priors for unkown model parameters
-            boo = (0.7*Dnu_guess<delta_nu<1.3*Dnu_guess) & (0.035*Dnu_guess<fwhm0<0.35*Dnu_guess) \
-                & (0.035*Dnu_guess<fwhm1<0.35*Dnu_guess) \
-                & (0.035*Dnu_guess<fwhm2<0.35*Dnu_guess) \
-                & (0.001<C<0.1) & (0.<offset<1.0) \
-                & (A0>0) & (A1>0) & (A2>0)
-            if boo:
-                lnprior = 0.
-            else:
-                return -np.inf
-            lnprior += normal(delta_nu, Dnu_guess, 0.15*Dnu_guess)
-            lnprior += normal(dnu_01, -0.025*Dnu_guess, 0.1*Dnu_guess)
-            lnprior += normal(dnu_02, 0.121*Dnu_guess+0.047, 0.1*Dnu_guess)
-            lnprior += normal(A0, 1.0, 0.3)
-            lnprior += normal(A1, 1.0, 0.3)
-            lnprior += normal(A2, 0.8, 0.15)
+        solution = model.output_dict['variable']
 
-            # expected value of outcome
-            yFoldObs, yFoldMod = model(theta)
+        epsp, Dnu, alphap, d02 = solution
+        ns = np.arange((numax-width)/Dnu, (numax+width)/Dnu, 1, dtype=int)
+        A = alphap
+        B = -2*numax*alphap-2*Dnu
+        C = numax**2.*alphap + 2*Dnu**2.*(ns+epsp)
+        nu0s = (-B-(B**2-4*A*C)**0.5)/(2*A)
+        nu2s = nu0s - d02*Dnu
 
-            # likelihood (sampling distribution) of observations
-            lnlike = -np.sum(yFoldObs/yFoldMod+np.log(yFoldMod))*6.
-            return lnprior + lnlike
-
-        paramsInit = [Dnu_guess, -0.025*Dnu_guess, 0.121*Dnu_guess+0.047,
-                    1.0, 1.0, 0.8, 0.25*Dnu_guess, 0.25*Dnu_guess, 0.25*Dnu_guess, 
-                    0.05, 0.5]
-        sampler = ESSampler(paramsInit, posterior, Nsteps=1000, Nburn=3000)
-        diagnostics = sampler.run(verbose=True)
-        yFoldObs, yFoldMod = model(diagnostics['paramsMax'])
-        epsp = (numax/diagnostics['paramsMax'][0]+diagnostics['paramsMax'][-1]) % 1.
-
-        self.pmode_diagnostics = {**diagnostics, 'model':model, 
-            'yFoldObs':yFoldObs, 'yFoldMod':yFoldMod, 'epsp':epsp}
+        self.pmode_diagnostics = {'freq':x, 'power':y, 'powers':ys,
+                    'height':height, 'numax':numax, 'width':width,
+                    'epsp':epsp, 'Dnu':Dnu, 
+                    'alphap':alphap, 'd02':d02,
+                    'nu0s':nu0s, 'nu2s':nu2s}
         return self.pmode_diagnostics
 
 
@@ -414,7 +479,27 @@ class solarlikeGlobalSeismo:
         axes[2,1].set_ylabel('Collapsed Power')
 
         # col 3: asymptotics
-        # # plot G,
+        # plot G, echelle, solution from p mode asymptotics
+        # axes[0,2]
+        numax, Dnu = pmode_diagnostics['numax'], pmode_diagnostics['Dnu']
+        epsp, alphap, width = pmode_diagnostics['epsp'], pmode_diagnostics['alphap'], pmode_diagnostics['width']
+        nu0s, nu2s = pmode_diagnostics['nu0s'], pmode_diagnostics['nu2s']
+        echx, echy, echz = echelle(pmode_diagnostics['freq'], pmode_diagnostics['powers'], 
+                    Dnu, numax-width*1.5, numax+width*1.5, echelletype="replicated")
+        levels = np.linspace(np.min(echz), np.max(echz), 500)
+        axes[0,2].contourf(echx, echy, echz, cmap="gray_r", levels=levels)
+        axes[0,2].scatter(nu0s%Dnu, nu0s-(nu0s%Dnu)+0.5*Dnu, marker='o', edgecolor='blue', facecolor='none')
+        axes[0,2].scatter(nu0s%Dnu+Dnu, nu0s-(nu0s%Dnu)-0.5*Dnu, marker='o', edgecolor='blue', facecolor='none')
+        axes[0,2].scatter(nu2s%Dnu, nu2s-(nu2s%Dnu)+0.5*Dnu, marker='s', edgecolor='green', facecolor='none')
+        axes[0,2].scatter(nu2s%Dnu+Dnu, nu2s-(nu2s%Dnu)-0.5*Dnu, marker='s', edgecolor='green', facecolor='none')
+        axes[0,2].axis([np.min(echx), np.max(echx), np.min(echy), np.max(echy)])
+        axes[0,2].set_xlabel("$\\nu$  mod {:0.2f} ($\\mu$Hz)".format(Dnu))
+        axes[0,2].set_ylabel('$\\nu$ ($\\mu$Hz)')
+        axes[0,2].text(0.95,0.95,'Dnu: {:0.3f}'.format(Dnu), transform=axes[0,2].transAxes, va='top', ha='right')
+        axes[0,2].text(0.95,0.95,'epsp: {:0.3f}'.format(epsp), transform=axes[0,2].transAxes, va='top', ha='right')
+        axes[0,2].text(0.95,0.95,'alphap: {:0.5f}'.format(alphap), transform=axes[0,2].transAxes, va='top', ha='right')
+        axes[0,2].axvline(Dnu, color='black', linestyle='--')
+        # axes[2,2].axhline(bg_diagnostics['paramsMax'][2], color='black', linestyle='--')
 
         # # plot H, asymptotic p fitting
         # x = np.linspace(0,1,len(pmode_diagnostics['yFoldObs']))*pmode_diagnostics['paramsMax'][0]
@@ -426,7 +511,7 @@ class solarlikeGlobalSeismo:
         # axes[1,2].text(0.95,0.90,'aysmp eps: {:0.3f}'.format(pmode_diagnostics['epsp']), 
         #                 transform=axes[1,2].transAxes, va='top', ha='right')
 
-        # plot I, echelle
+        # plot I, echelle, using Dnu from acf
         # axes[2,2]
         numax = numax_diagnostics['cacf_numax']
         Dnu = Dnu_diagnostics['acf_Dnu']
