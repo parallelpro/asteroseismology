@@ -241,7 +241,7 @@ class solarlikeGlobalSeismo:
 
         # method 2 - Determine Dnu by collapsing the power spectrum
 
-        length = Dnu_guess + np.arange(-0.33,0.33,np.median(np.diff(freq)))*Dnu_guess
+        length = Dnu_guess + np.arange(-0.33,0.33,np.median(np.diff(freq))/Dnu_guess)*Dnu_guess
         maxPower = np.zeros(len(length)) 
         for iunit, unit in enumerate(length):
             # collapsed diagrams
