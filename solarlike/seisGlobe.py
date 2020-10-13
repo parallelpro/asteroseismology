@@ -61,7 +61,7 @@ class solarlikeGlobalSeismo:
 
         # save
         if verbose: print('> Plotting.')
-        self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, 1)
+        self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, pmode_diagnostics)
 
         if verbose: print('> Saving.')
         self.to_data(cacf_numax=numax_diagnostics, acf_Dnu=Dnu_diagnostics,
@@ -69,11 +69,16 @@ class solarlikeGlobalSeismo:
         return
 
     def run2(self, numax_diagnostics, Dnu_diagnostics, bg_diagnostics, verbose=True):
-        if verbose: print('>>> Processing star {:s}.'.format(self.starID))
+        if verbose: print('> Fitting p mode asymptotic parameters (epsp, alphap, Dnu).')
+        pmode_diagnostics = self.get_pmode_asymp(bg_diagnostics['paramsMax'][1], # heightOsc
+                                                bg_diagnostics['paramsMax'][2], # numax
+                                                bg_diagnostics['paramsMax'][3], # widthOsc
+                                                Dnu_diagnostics['acf_Dnu']) # Dnu
+        if verbose: print('  Fitted epsp: {:0.3f}'.format(pmode_diagnostics['epsp'])) 
+        if verbose: print('  Fitted alphap: {:0.5f}'.format(pmode_diagnostics['alphap'])) 
+        if verbose: print('  Fitted Dnu: {:0.3f}'.format(pmode_diagnostics['Dnu']))       
 
-        if verbose: print('> Fitting p-mode asymptotics.')
-        pmode_diagnostics = self.get_pmode_asymp(numax_diagnostics['cacf_numax'])
-
+        # save
         if verbose: print('> Plotting.')
         self.to_plot(numax_diagnostics, Dnu_diagnostics, bg_diagnostics, pmode_diagnostics)
 
@@ -346,17 +351,22 @@ class solarlikeGlobalSeismo:
 
     def get_pmode_asymp(self, height, numax, width, Dnu):
         # Gaussian envolope corrected power spectrum
-        idx = (self.freq>=numax-2*width)&(self.freq<=numax+2*width)
-        x, y = self.freq[idx], self.power[idx]
-        ys = smoothWrapper(x, y, Dnu/30.0, 'bartlett')
-        weight = height*np.exp(-(x-numax)**2.0/(2*width**2.))
-        meanBGLevel = np.percentile(y, 20)
-        y /= weight*meanBGLevel
-        ys /= weight*meanBGLevel
+        freq, power = self.freq, self.power
+        powers = smoothWrapper(self.freq, self.power, Dnu/30.0, 'bartlett')
+
+        idx = (freq>=numax-2*width)&(freq<=numax+2*width)
+        freq, power, powers = freq[idx], power[idx], powers[idx]
+        weight = height*np.exp(-(freq-numax)**2.0/(2*width**2.))
+        meanBGLevel = np.percentile(power, 20)
+
+        power /= weight*meanBGLevel
+        powers /= weight*meanBGLevel
+
+        x, y, ys = freq, power, powers
 
         def merit(theta):
             tepsp, tDnu, talphap, td02 = theta
-            ns = np.arange((numax-width)/tDnu, (numax+width)/tDnu, 1, dtype=int)
+            ns = np.arange((numax-width*1.5)/tDnu, (numax+width*1.5)/tDnu, 1, dtype=int)
             A = talphap
             B = -2*numax*talphap-2*tDnu
             C = numax**2.*talphap + 2*tDnu**2.*(ns+tepsp)
@@ -392,7 +402,7 @@ class solarlikeGlobalSeismo:
         nu0s = (-B-(B**2-4*A*C)**0.5)/(2*A)
         nu2s = nu0s - d02*Dnu
 
-        self.pmode_diagnostics = {'freq':x, 'power':y, 'powers':ys,
+        self.pmode_diagnostics = {'freq':freq, 'power':power, 'powers':powers,
                     'height':height, 'numax':numax, 'width':width,
                     'epsp':epsp, 'Dnu':Dnu, 
                     'alphap':alphap, 'd02':d02,
@@ -484,8 +494,9 @@ class solarlikeGlobalSeismo:
         numax, Dnu = pmode_diagnostics['numax'], pmode_diagnostics['Dnu']
         epsp, alphap, width = pmode_diagnostics['epsp'], pmode_diagnostics['alphap'], pmode_diagnostics['width']
         nu0s, nu2s = pmode_diagnostics['nu0s'], pmode_diagnostics['nu2s']
-        echx, echy, echz = echelle(pmode_diagnostics['freq'], pmode_diagnostics['powers'], 
-                    Dnu, numax-width*1.5, numax+width*1.5, echelletype="replicated")
+        powerSmoothed = smoothWrapper(self.freq, self.power, Dnu*0.03, 'flat')
+        echx, echy, echz = echelle(self.freq, powerSmoothed, 
+                    Dnu, numax-width*4., numax+width*4., echelletype="replicated")
         levels = np.linspace(np.min(echz), np.max(echz), 500)
         axes[0,2].contourf(echx, echy, echz, cmap="gray_r", levels=levels)
         axes[0,2].scatter(nu0s%Dnu, nu0s-(nu0s%Dnu)+0.5*Dnu, marker='o', edgecolor='blue', facecolor='none')
@@ -496,8 +507,8 @@ class solarlikeGlobalSeismo:
         axes[0,2].set_xlabel("$\\nu$  mod {:0.2f} ($\\mu$Hz)".format(Dnu))
         axes[0,2].set_ylabel('$\\nu$ ($\\mu$Hz)')
         axes[0,2].text(0.95,0.95,'Dnu: {:0.3f}'.format(Dnu), transform=axes[0,2].transAxes, va='top', ha='right')
-        axes[0,2].text(0.95,0.95,'epsp: {:0.3f}'.format(epsp), transform=axes[0,2].transAxes, va='top', ha='right')
-        axes[0,2].text(0.95,0.95,'alphap: {:0.5f}'.format(alphap), transform=axes[0,2].transAxes, va='top', ha='right')
+        axes[0,2].text(0.95,0.90,'epsp: {:0.3f}'.format(epsp), transform=axes[0,2].transAxes, va='top', ha='right')
+        axes[0,2].text(0.95,0.85,'alphap: {:0.5f}'.format(alphap), transform=axes[0,2].transAxes, va='top', ha='right')
         axes[0,2].axvline(Dnu, color='black', linestyle='--')
         # axes[2,2].axhline(bg_diagnostics['paramsMax'][2], color='black', linestyle='--')
 
