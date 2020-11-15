@@ -220,9 +220,9 @@ class grid:
 
             # regression
             b = obs_freq_l0-mod_freq_l0
-            # avoid selecting reversed models
-            if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
-                return None
+            # # avoid selecting reversed models
+            # if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
+            #     return None
 
             A1 = (mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
             A2 = (mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
@@ -513,52 +513,57 @@ class grid:
         for l in range(4):
             styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
             axes[0].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-            axes[0].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l] + delta_nu, **styles)
+            axes[0].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l], **styles)
 
         mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][np.nanargmin(model_chi2)] for i in range(len(model_parameters))]
         # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
         mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
-        if (mod_freq_cor is None): 
-            return fig
+        if self.ifCorrectSurface:
+            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
+            # if (mod_freq_cor is None): return fig
+        else:
+            mod_freq_cor = mod_freq
+
         # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
         mod_freq_cor, mod_l_cor = mod_freq_cor, mod_l
 
         for l in [0,1]:
             styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
             axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l] + delta_nu, **styles)
+            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
 
             # surface corrected
             styles = {'marker':markers[l], 'edgecolor':'black', 'facecolor':'None', 'zorder':2}
             axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l] + delta_nu, **styles)
+            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
 
 
         # plot best model l=2
         for l in range(4):
             styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
             axes[1].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-            axes[1].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l] + delta_nu, **styles)
+            axes[1].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l], **styles)
 
         mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][np.nanargmin(model_chi2)] for i in range(len(model_parameters))]
         # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
         mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
-        if (mod_freq_cor is None): 
-            return fig
+        if self.ifCorrectSurface:
+            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
+            # if (mod_freq_cor is None): return fig
+        else:
+            mod_freq_cor = mod_freq
         # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
         mod_freq_cor, mod_l_cor = mod_freq_cor, mod_l
 
         for l in [0,2]:
             styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
             axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l] + delta_nu, **styles)
+            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
 
             # surface corrected
             styles = {'marker':markers[l], 'edgecolor':'black', 'facecolor':'None', 'zorder':2}
             axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l] + delta_nu, **styles)
+            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
 
 
         # # plot top 10 models
