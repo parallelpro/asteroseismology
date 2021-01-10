@@ -417,18 +417,21 @@ class grid:
                 lnlikelihood = -chi2/2.0 # proportionally speaking
                 lnprior = np.log(prior)
                 lnprob = lnprior + lnlikelihood
-                
-                # posterior
-                model_chi2[istar] = np.append(model_chi2[istar], chi2)
-                model_lnprob[istar] = np.append(model_lnprob[istar], lnprob)
+            
+                # only save models with a large likelihood - otherwise not useful and quickly fill up memory
+                fidx = chi2 < 23 # equal to likelihood<0.00001
 
                 # estimates
                 for iestimate in range(Nestimate):
-                    model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], atrack[self.estimates[iestimate]][1:-1])
+                    model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], atrack[self.estimates[iestimate]][1:-1][fidx])
                 
                 if self.ifSetupSeismology:
                     for iseis, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq]):
-                        model_parameters[istar][Nestimate+iseis] = np.append(model_parameters[istar][Nestimate+iseis], atrack[para][1:-1])
+                        model_parameters[istar][Nestimate+iseis] = np.append(model_parameters[istar][Nestimate+iseis], atrack[para][1:-1][fidx])
+
+                # posterior
+                model_chi2[istar] = np.append(model_chi2[istar], chi2[fidx])
+                model_lnprob[istar] = np.append(model_lnprob[istar], lnprob[fidx])
 
         return model_lnprob, model_chi2, model_parameters
 
