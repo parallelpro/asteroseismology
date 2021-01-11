@@ -602,7 +602,7 @@ class grid:
         return fig
 
 
-    def output_results(self, model_prob, model_chi2, model_parameters, starnames):
+    def output_results(self, model_prob, model_chi2, model_parameters, starnames, plot=False):
 
         Nstar = len(starnames)
         Nestimate = len(self.estimates)
@@ -619,33 +619,34 @@ class grid:
             weights, logweights = weights[index], logweights[index] # weights[~index] = 0.
             samples = (np.array(model_parameters[istar][0:Nestimate], dtype=float).T)[index,:]
 
-            if samples.shape[0] <= samples.shape[1]:
-                f = open(toutdir+'log.txt', 'w')
-                f.write("Parameter estimation failed because samples.shape[0] <= samples.shape[1].")
-                f.close()
-            else:
-                # plot prob distributions
-                # fig = corner.corner(samples, labels=self.estimates, quantiles=(0.16, 0.5, 0.84), weights=weights)
-                fig = self.plot_parameter_distributions(samples, self.estimates, weights)
-                fig.savefig(toutdir+"triangle.png")
-                plt.close()
-
-                # plot HR diagrams
-                fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
-                if not (fig is None): 
-                    fig.savefig(toutdir+"HR.png")
+            if plot:
+                if samples.shape[0] <= samples.shape[1]:
+                    f = open(toutdir+'log.txt', 'w')
+                    f.write("Parameter estimation failed because samples.shape[0] <= samples.shape[1].")
+                    f.close()
+                else:
+                    # plot prob distributions
+                    # fig = corner.corner(samples, labels=self.estimates, quantiles=(0.16, 0.5, 0.84), weights=weights)
+                    fig = self.plot_parameter_distributions(samples, self.estimates, weights)
+                    fig.savefig(toutdir+"triangle.png")
                     plt.close()
 
-                # plot echelle diagrams
-                if self.ifSetupSeismology:
-                    fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
-                            model_parameters[istar][-4:], model_chi2[istar])
-                    fig.savefig(toutdir+"echelles.png")
-                    plt.close()
+                    # plot HR diagrams
+                    fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
+                    if not (fig is None): 
+                        fig.savefig(toutdir+"HR.png")
+                        plt.close()
 
-                # write prob distribution summary file
-                results = quantile(samples, (0.16, 0.5, 0.84), weights=weights)
-                ascii.write(Table(results, names=self.estimates), toutdir+"summary.txt",format="csv", overwrite=True)
+                    # plot echelle diagrams
+                    if self.ifSetupSeismology:
+                        fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
+                                model_parameters[istar][-4:], model_chi2[istar])
+                        fig.savefig(toutdir+"echelles.png")
+                        plt.close()
+
+                    # write prob distribution summary file
+                    results = quantile(samples, (0.16, 0.5, 0.84), weights=weights)
+                    ascii.write(Table(results, names=self.estimates), toutdir+"summary.txt",format="csv", overwrite=True)
 
             # endofif
 
@@ -660,7 +661,7 @@ class grid:
 
         return 
 
-    def estimate_parameters(self, Nthread=1):
+    def estimate_parameters(self, Nthread=1, plot=False):
         """
         Estimate parameters. Magic function!
         ----------
@@ -705,13 +706,13 @@ class grid:
         # output results
         # assign prob to models
         if Nthread==1:
-            self.output_results(model_prob, model_chi2, model_parameters, self.starname)
+            self.output_results(model_prob, model_chi2, model_parameters, self.starname, plot=plot)
         else:
             Nstar_per_thread = int(Nstar/Nthread)+1
             arglist = [(model_prob[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_parameters[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
-                    self.starname[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread]) for ithread in range(Nthread)]
+                    self.starname[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], plot) for ithread in range(Nthread)]
 
             pool = multiprocessing.Pool(processes=Nthread)
             pool.starmap(self.output_results, arglist)
