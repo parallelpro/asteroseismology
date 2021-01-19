@@ -6,6 +6,7 @@ import os
 from astropy.io import ascii
 from astropy.table import Table, Column
 import corner
+import h5py
 
 import multiprocessing
 from functools import partial
@@ -447,7 +448,7 @@ class grid:
                 lnprob = lnprior + lnlikelihood
             
                 # only save models with a large likelihood - otherwise not useful and quickly fill up memory
-                fidx = chi2 < 23 # equal to likelihood<0.00001
+                fidx = chi2_nonseis < 23 # equal to likelihood<0.00001
 
                 # estimates
                 for iestimate in range(Nestimate):
@@ -680,14 +681,21 @@ class grid:
 
             # endofif
 
-            # prob of each model on the track
-            model_parameters_nonseis = {self.estimates[i]:model_parameters[istar][i] for i in range(len(self.estimates))}
-            if self.ifSetupSeismology:
-                model_parameters_seis = {para:model_parameters[istar][len(self.estimates)+i] for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq])}
-            else:
-                model_parameters_seis = None
-            data = np.array([model_prob[istar], model_chi2[istar], model_chi2_seis[istar], model_chi2_nonseis[istar], model_parameters_nonseis, model_parameters_seis], dtype=object)
-            np.save(toutdir+'data', data)
+            # write related parameters to file
+            with h5py.File(toutdir+'data.h5', 'w') as h5f:
+                # classic parameters
+                for i in range(len(self.estimates)):
+                    h5f.create_dataset(self.estimates[i], data=np.array(model_parameters[istar][i],dtype=float))
+                # seismic parameters
+                if self.ifSetupSeismology:
+                    for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia]):
+                        for j in range(len(model_parameters[istar][len(self.estimates)+i])):
+                            h5f.create_dataset(para+'/{:0.0f}'.format(j), data=np.array(model_parameters[istar][len(self.estimates)+i][j], dtype=float))
+                # chi2 parameters
+                h5f.create_dataset('chi2', data=model_chi2[istar])
+                h5f.create_dataset('chi2_seis', data=model_chi2_seis[istar])
+                h5f.create_dataset('chi2_nonseis', data=model_chi2_nonseis[istar])
+                h5f.create_dataset('prob', data=model_prob[istar])
 
         return 
 
