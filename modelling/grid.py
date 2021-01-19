@@ -255,7 +255,7 @@ class grid:
                 # apply corrections
                 try:
                     coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
-                    delta_freq = ( coeff[1]*(mod_freq/mod_acfreq)**3. ) / mod_inertia
+                    delta_freq = ( coeff[0]*(mod_freq/mod_acfreq)**3. ) / mod_inertia
                     mod_freq += delta_freq
                 except:
                     print('An exception occurred when correcting surface effect.')
