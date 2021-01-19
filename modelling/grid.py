@@ -103,7 +103,7 @@ class grid:
     def setup_seismology(self, obs_freq, obs_efreq, obs_l, 
             colModeFreq='mode_freq', colModeDegree='mode_l', colModeInertia='mode_inertia',
             colAcFreq='acoustic_cutoff', weight_nonseis=1, weight_seis=1, ifCorrectSurface=True,
-            obs_delta_nu=None):
+            obs_delta_nu=None, surface_correction_formula='cubic'):
         """
         Setup the matching of oscillation frequencies (to construct the chi2_seismo)
         In order to setup, you should make sure that 'atrack[colModeFreq]' returns a list  
@@ -157,6 +157,7 @@ class grid:
         self.weight_seis = weight_seis
         self.ifCorrectSurface = ifCorrectSurface
         self.obs_delta_nu = obs_delta_nu
+        self.surface_correction_formula = surface_correction_formula
 
         self.ifSetupSeismology=True
         return self
@@ -201,7 +202,11 @@ class grid:
         return (new_obs_freq, new_obs_efreq, new_obs_l, new_mod_freq, new_mod_l, *new_mod_args)
 
 
-    def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq):
+    def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula='cubic'):
+        # formula is one of 'cubic', 'BG14'
+        if not (formula in ['cubic', 'BG14']):
+            raise ValueError('formula must be one of ``cubic`` and ``BG14``. ')
+
         if (np.sum(np.isin(mod_l, 0))) :
             # if correction is needed, first we use l=0 modes to derive correction factors
             # if obs_l don't have a 0, well I am not expecting this! 
@@ -224,20 +229,36 @@ class grid:
             # if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
             #     return None
 
-            A1 = (mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
-            A2 = (mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
-            AT = np.array([A1, A2])
-            A = AT.T
-            b = b.reshape(-1,1)
+            if formula == 'BG14':
+                A1 = (mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
+                A2 = (mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
+                AT = np.array([A1, A2])
+                A = AT.T
+                b = b.reshape(-1,1)
 
-            # apply corrections
-            try:
-                coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
-                delta_freq = (coeff[0]*(mod_freq/mod_acfreq)**-1.  + coeff[1]*(mod_freq/mod_acfreq)**3. ) / mod_inertia
-                mod_freq += delta_freq
-            except:
-                print('An exception occurred when correcting surface effect.')
-                # pass
+                # apply corrections
+                try:
+                    coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
+                    delta_freq = (coeff[0]*(mod_freq/mod_acfreq)**-1.  + coeff[1]*(mod_freq/mod_acfreq)**3. ) / mod_inertia
+                    mod_freq += delta_freq
+                except:
+                    print('An exception occurred when correcting surface effect.')
+                    # pass
+
+            if formula == 'cubic':
+                A2 = (mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
+                AT = np.array([A2])
+                A = AT.T
+                b = b.reshape(-1,1)
+
+                # apply corrections
+                try:
+                    coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
+                    delta_freq = ( coeff[1]*(mod_freq/mod_acfreq)**3. ) / mod_inertia
+                    mod_freq += delta_freq
+                except:
+                    print('An exception occurred when correcting surface effect.')
+                    # pass
 
         return mod_freq
 
@@ -286,7 +307,7 @@ class grid:
                 else:
                     tinertia, tacfreq = mod_inertia[imod], mod_acfreq[imod]
 
-                tfreq = self.get_surface_correction(obs_freq, obs_l, tfreq, tl, tinertia, tacfreq)
+                tfreq = self.get_surface_correction(obs_freq, obs_l, tfreq, tl, tinertia, tacfreq, formula=self.surface_correction_formula)
 
             if (tfreq is None):
                 chi2_seis[imod] = np.inf
@@ -522,7 +543,7 @@ class grid:
         # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
         mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
         if self.ifCorrectSurface:
-            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
+            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
             # if (mod_freq_cor is None): return fig
         else:
             mod_freq_cor = mod_freq
@@ -551,7 +572,7 @@ class grid:
         # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
         mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
         if self.ifCorrectSurface:
-            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
+            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
             # if (mod_freq_cor is None): return fig
         else:
             mod_freq_cor = mod_freq
@@ -580,7 +601,7 @@ class grid:
         #     mod_freq, mod_l, mod_inertia, mod_acfreq = [tmodel_parameters[i][imod] for i in range(len(tmodel_parameters))]
         #     # _, _, _, mod_freq, mod_l = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
         #     mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        #     mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq)
+        #     mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
         #     if (mod_freq_cor is None): 
         #         continue
         #     # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
