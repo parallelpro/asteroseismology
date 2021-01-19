@@ -365,7 +365,7 @@ class grid:
                 ifCorrectSurface=ifCorrectSurface)
         
         chi2 = chi2_nonseis * weight_nonseis + chi2_seis * weight_seis
-        return chi2
+        return chi2_nonseis, chi2_seis, chi2
 
 
     def assign_prob_to_models(self, tracks):
@@ -376,6 +376,8 @@ class grid:
         Nseis = 4 if self.ifSetupSeismology else 0
 
         model_chi2 = [np.array([]) for istar in range(Nstar)]
+        model_chi2_seis = [np.array([]) for istar in range(Nstar)]
+        model_chi2_nonseis = [np.array([]) for istar in range(Nstar)]
         model_lnprob = [np.array([]) for istar in range(Nstar)]
         model_parameters = [[np.array([], dtype=object) for iestimate in range(Nestimate+Nseis)] for istar in range(Nstar)]
 
@@ -398,7 +400,9 @@ class grid:
                     obs, e_obs = self.stars_obs[istar], self.stars_obserr[istar]
                     mod = np.array([atrack[i][1:-1] for i in self.observables]).T.reshape(Nmodel,-1)#np.array(atrack[self.observables][1:-1]).view(np.float64).reshape(Nmodel + (-1,))
 
-                    chi2 = self.get_chi2(obs, e_obs, mod)
+                    chi2_nonseis = self.get_chi2(obs, e_obs, mod)
+                    chi2_seis = np.zeros(chi2_nonseis.shape)
+                    chi2 = chi2_nonseis
 
                 if (self.ifSetup) & (self.ifSetupSeismology):
                     # nonseis
@@ -416,7 +420,7 @@ class grid:
                     else: 
                         mod_inertia, mod_acfreq = None, None
 
-                    chi2 = self.get_chi2_combined(obs, e_obs, mod, 
+                    chi2_nonseis, chi2_seis, chi2 = self.get_chi2_combined(obs, e_obs, mod, 
                         obs_freq, obs_efreq, obs_l, 
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
                         self.weight_nonseis, self.weight_seis, ifCorrectSurface=self.ifCorrectSurface)
@@ -432,8 +436,11 @@ class grid:
                     else: 
                         mod_inertia, mod_acfreq = None, None
 
-                    chi2 = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
+                    chi2_seis = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
                         mod_freq, mod_l, mod_inertia, mod_acfreq, ifCorrectSurface=self.ifCorrectSurface)
+
+                    chi2_nonseis = np.zeros(chi2_seis.shape)
+                    chi2 = chi2_seis
 
                 lnlikelihood = -chi2/2.0 # proportionally speaking
                 lnprior = np.log(prior)
@@ -452,9 +459,11 @@ class grid:
 
                 # posterior
                 model_chi2[istar] = np.append(model_chi2[istar], chi2[fidx])
+                model_chi2_seis[istar] = np.append(model_chi2_seis[istar], chi2_seis[fidx])
+                model_chi2_nonseis[istar] = np.append(model_chi2_nonseis[istar], chi2_nonseis[fidx])
                 model_lnprob[istar] = np.append(model_lnprob[istar], lnprob[fidx])
 
-        return model_lnprob, model_chi2, model_parameters
+        return model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters
 
 
     def plot_parameter_distributions(self, samples, estimates, probs):
@@ -623,7 +632,7 @@ class grid:
         return fig
 
 
-    def output_results(self, model_prob, model_chi2, model_parameters, starnames, plot=False):
+    def output_results(self, model_prob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters, starnames, plot=False):
 
         Nstar = len(starnames)
         Nestimate = len(self.estimates)
@@ -677,7 +686,7 @@ class grid:
                 model_parameters_seis = {para:model_parameters[istar][len(self.estimates)+i] for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq])}
             else:
                 model_parameters_seis = None
-            data = np.array([model_prob[istar], model_chi2[istar], model_parameters_nonseis, model_parameters_seis], dtype=object)
+            data = np.array([model_prob[istar], model_chi2[istar], model_chi2_seis[istar], model_chi2_nonseis[istar], model_parameters_nonseis, model_parameters_seis], dtype=object)
             np.save(toutdir+'data', data)
 
         return 
@@ -694,26 +703,26 @@ class grid:
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
 
         if Nthread == 1:
-            model_lnprob, model_chi2, model_parameters = self.assign_prob_to_models(self.tracks)
+            model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters = self.assign_prob_to_models(self.tracks)
         else:
             # assign prob to models
             Ntrack_per_thread = int(Ntrack/Nthread)+1
             arglist = [self.tracks[ithread*Ntrack_per_thread:(ithread+1)*Ntrack_per_thread] for ithread in range(Nthread)]
             pool = multiprocessing.Pool(processes=Nthread)
-            # part_func = partial(self.assign_prob_to_models, self.starname, )
             result_list = pool.map(self.assign_prob_to_models, arglist)
             pool.close()
 
             # merge probs from different threads
-            model_lnprob = [np.array([]) for istar in range(Nstar)]
-            model_chi2 = [np.array([]) for istar in range(Nstar)]
+            model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis = [[np.array([]) for istar in range(Nstar)] for i in range(4)]
             model_parameters = [[np.array([]) for iestimate in range(Nestimate)] for istar in range(Nstar)] 
             for ithread in range(Nthread):
                 for istar in range(Nstar):
                     model_lnprob[istar] = np.append(model_lnprob[istar], result_list[ithread][0][istar])
                     model_chi2[istar] = np.append(model_chi2[istar], result_list[ithread][1][istar])
+                    model_chi2_seis[istar] = np.append(model_chi2[istar], result_list[ithread][2][istar])
+                    model_chi2_nonseis[istar] = np.append(model_chi2[istar], result_list[ithread][3][istar])
                     for iestimate in range(Nestimate):
-                        model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], result_list[ithread][2][istar][iestimate])
+                        model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], result_list[ithread][4][istar][iestimate])
 
         # normalize probs
         model_prob = model_lnprob
@@ -727,11 +736,13 @@ class grid:
         # output results
         # assign prob to models
         if Nthread==1:
-            self.output_results(model_prob, model_chi2, model_parameters, self.starname, plot=plot)
+            self.output_results(model_prob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters, self.starname, plot=plot)
         else:
             Nstar_per_thread = int(Nstar/Nthread)+1
             arglist = [(model_prob[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
+                    model_chi2_seis[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
+                    model_chi2_nonseis[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_parameters[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     self.starname[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], plot) for ithread in range(Nthread)]
 
