@@ -41,6 +41,8 @@ class grid:
             (like the one defined in 'astropy'). The track column of an 
             observable/estimate 'i' defined in self.setup should be able 
             to be called with 'atrack[i]'.
+            Return a 'None' object to skip this track. This is useful for
+            cases like the data is not properly laoding.
         tracks: array-like[Ntrack,]
             A list containing the paths of all tracks.
         estimates: array-like[Nestimate,]
@@ -386,6 +388,7 @@ class grid:
 
             # read in itrack
             atrack = self.read_models(tracks[itrack])
+            if (atrack is None) : continue
             Nmodel = len(atrack) - 2
 
             # calculate posterior
