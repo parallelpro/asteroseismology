@@ -785,9 +785,11 @@ class grid:
         for istar in range(Nstar):
             # model_prob[istar] /= np.nansum(model_lnprob[istar])
             # numerically more stable to handle extremely small probabilities
-            prob = np.exp(model_lnprob[istar]-logsumexp(model_lnprob[istar][np.isfinite(model_lnprob[istar])])) #np.exp(lnprob)#
-            prob[~np.isfinite(prob)] = 0.
-            model_prob[istar] = prob
+            lnprob = np.zeros(len(model_lnprob[istar]))
+            idx = (np.isfinite(model_lnprob[istar])) & (model_lnprob[istar]<-50)
+            lnprob[idx] = model_lnprob[istar][idx]-logsumexp(model_lnprob[istar][idx])
+            lnprob[~idx] = -np.inf
+            model_prob[istar] = np.exp(lnprob) 
 
         # output results
         # assign prob to models
