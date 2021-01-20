@@ -712,6 +712,7 @@ class grid:
         """
 
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
+        Nseis = 4 if self.ifSetupSeismology else 0
 
         if Nthread == 1:
             model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters = self.assign_prob_to_models(self.tracks)
@@ -725,14 +726,14 @@ class grid:
 
             # merge probs from different threads
             model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis = [[np.array([]) for istar in range(Nstar)] for i in range(4)]
-            model_parameters = [[np.array([]) for iestimate in range(Nestimate)] for istar in range(Nstar)] 
+            model_parameters = [[np.array([]) for iestimate in range(Nestimate+Nseis)] for istar in range(Nstar)] 
             for ithread in range(Nthread):
                 for istar in range(Nstar):
                     model_lnprob[istar] = np.append(model_lnprob[istar], result_list[ithread][0][istar])
                     model_chi2[istar] = np.append(model_chi2[istar], result_list[ithread][1][istar])
                     model_chi2_seis[istar] = np.append(model_chi2[istar], result_list[ithread][2][istar])
                     model_chi2_nonseis[istar] = np.append(model_chi2[istar], result_list[ithread][3][istar])
-                    for iestimate in range(Nestimate):
+                    for iestimate in range(Nestimate+Nseis):
                         model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], result_list[ithread][4][istar][iestimate])
 
         # normalize probs
