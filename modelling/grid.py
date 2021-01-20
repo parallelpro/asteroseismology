@@ -71,7 +71,7 @@ class grid:
         self.colAge = colAge
         # self.colLogLum = colLogLum
         # self.colLogTeff = colLogTeff
-
+        
         self.ifSetup = False
         self.ifSetupSeismology = False
         return 
@@ -98,12 +98,12 @@ class grid:
         self.observables = observables
         self.stars_obs = stars_obs
         self.stars_obserr = stars_obserr
-
+        
         self.ifSetup = True
         return self
 
 
-    def setup_seismology(self, obs_freq, obs_efreq, obs_l, 
+    def setup_seismology(self, obs_freq, obs_efreq, obs_l, Dnu, numax,
             colModeFreq='mode_freq', colModeDegree='mode_l', colModeInertia='mode_inertia',
             colAcFreq='acoustic_cutoff', weight_nonseis=1, weight_seis=1, ifCorrectSurface=True,
             obs_delta_nu=None, surface_correction_formula='cubic'):
@@ -125,6 +125,16 @@ class grid:
         obs_l: array-like[Nstar, Nmode] 
             The mode degree of each star.
 
+        Dnu: array-like[Nstar,] 
+            The p-mode large separation in muHz. This is used to compare 
+            the model Dnu calculated from radial mode frequencies, and 
+            thus ensure the models in a reasonable Dnu range. 
+
+        numax: array-like[Nstar,] 
+            The frequency of maximum power in muHz. This is used to compare 
+            the model Dnu calculated from radial mode frequencies, and 
+            thus ensure the models in a reasonable Dnu range. 
+
         ----------
         Optional input:
         colModeFreq: str, default 'mode_freq'
@@ -144,14 +154,13 @@ class grid:
             of Ball & Gizon (2014) (the inverse and cubic term).
             Should extend more capabilities here!
 
-        obs_delta_nu: float, [muHz]
-            the large speration to make echelle plot for the best model.
-            if not set, then the code estimates it with frequencies.
         """
 
         self.obs_freq = obs_freq
         self.obs_efreq = obs_efreq
         self.obs_l = obs_l
+        self.Dnu = Dnu 
+        self.numax = numax
         self.colModeFreq = colModeFreq
         self.colModeDegree = colModeDegree
         self.colModeInertia = colModeInertia
@@ -159,14 +168,14 @@ class grid:
         self.weight_nonseis = weight_nonseis
         self.weight_seis = weight_seis
         self.ifCorrectSurface = ifCorrectSurface
-        self.obs_delta_nu = obs_delta_nu
         self.surface_correction_formula = surface_correction_formula
-
+        
         self.ifSetupSeismology=True
         return self
 
 
     def assign_n(self, obs_freq, obs_efreq, obs_l, mod_freq, mod_l, *modargs):
+        
         # assign n_p or n_g based on the closenes of the frequencies
         new_obs_freq, new_obs_efreq, new_obs_l, new_mod_freq, new_mod_l = [np.array([]) for i in range(5)]
         # new_mod_freq = np.zeros(len(obs_freq)) 
@@ -206,6 +215,7 @@ class grid:
 
 
     def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula='cubic'):
+        
         # formula is one of 'cubic', 'BG14'
         if not (formula in ['cubic', 'BG14']):
             raise ValueError('formula must be one of ``cubic`` and ``BG14``. ')
@@ -266,7 +276,34 @@ class grid:
         return mod_freq
 
 
-    def get_chi2_seismology(self, Nmodel, obs_freq, obs_efreq, obs_l, 
+    def get_model_Dnu(self, mod_freq, mod_l, Dnu, numax):
+        
+        """
+        Calculate model Dnu around numax.
+        ----------
+        Input:
+        mod_freq: array_like[Nmode_mod]
+            model's mode frequency
+        mod_l: array_like[Nmode_mod]
+            model's mode degree
+        Dnu: float
+            the p-mode large separation in muHz
+        numax: float
+            the frequency of maximum power in muHz
+
+        ----------
+        Return:
+        mod_Dnu: float
+
+        """
+        idx = (mod_l==0) & (mod_freq>(numax-4.3*Dnu)) & (mod_freq<(numax+4.3*Dnu))
+        if np.sum(idx)>5:
+            return np.median(np.diff(np.sort(mod_freq[idx])))
+        else:
+            return np.nan
+
+
+    def get_chi2_seismology(self, Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 ifCorrectSurface=True):
         """
@@ -281,6 +318,10 @@ class grid:
             observed mode frequency
         obs_l: array_like[Nmode_obs, ]
             observed mode degree
+        Dnu: float
+            observed Dnu
+        numax: float
+            observed numax
         mod_freq: array_like[Nmodel, Nmode_mod]
             model's mode frequency
         mod_l: array_like[Nmodel, Nmode_mod]
@@ -295,7 +336,7 @@ class grid:
         chi2: array_like[Nmodel, ]
 
         """
-
+        
         chi2_seis = np.array([np.inf]*Nmodel)
         # chi2_best = np.inf
         for imod in range(Nmodel):
@@ -305,12 +346,16 @@ class grid:
                 tfreq, tl = np.array(mod_freq[imod]), np.array(mod_l[imod])
         
             if ifCorrectSurface & (np.sum(np.isin(tl, 0))) :
-                if Nmodel == 1:
-                    tinertia, tacfreq = mod_inertia, mod_acfreq
-                else:
-                    tinertia, tacfreq = mod_inertia[imod], mod_acfreq[imod]
+                mod_Dnu = self.get_model_Dnu(tfreq, tl, Dnu, numax)
+                if np.abs((mod_Dnu-Dnu)/Dnu) < 0.3:
+                    if Nmodel == 1:
+                        tinertia, tacfreq = mod_inertia, mod_acfreq
+                    else:
+                        tinertia, tacfreq = mod_inertia[imod], mod_acfreq[imod]
 
-                tfreq = self.get_surface_correction(obs_freq, obs_l, tfreq, tl, tinertia, tacfreq, formula=self.surface_correction_formula)
+                    tfreq = self.get_surface_correction(obs_freq, obs_l, tfreq, tl, tinertia, tacfreq, formula=self.surface_correction_formula)
+                else:
+                    tfreq = None
 
             if (tfreq is None):
                 chi2_seis[imod] = np.inf
@@ -338,6 +383,7 @@ class grid:
         chi2: array_like[Nmodel, ]
 
         '''
+        
         # ndim = np.ndim(mod)
         # Nobservable = np.shape(mod)[-1]
             
@@ -348,14 +394,14 @@ class grid:
 
 
     def get_chi2_combined(self, obs, e_obs, mod, 
-                obs_freq, obs_efreq, obs_l, 
+                obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 weight_nonseis=1.0, weight_seis=1.0, ifCorrectSurface=True):
         """
         Nonseismic and seismic combined. 
 
         """
-
+        
         ndim = np.ndim(mod)
         if ndim == 1:
             Nmodel = 1
@@ -363,7 +409,7 @@ class grid:
             Nmodel = np.shape(mod)[0]
         
         chi2_nonseis = self.get_chi2(obs, e_obs, mod)
-        chi2_seis = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
+        chi2_seis = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 ifCorrectSurface=ifCorrectSurface)
         
@@ -372,7 +418,7 @@ class grid:
 
 
     def assign_prob_to_models(self, tracks):
-
+        
         Nestimate = len(self.estimates)
         Nstar = len(self.starname)
         Ntrack = len(tracks)
@@ -406,7 +452,7 @@ class grid:
 
                     chi2_nonseis = self.get_chi2(obs, e_obs, mod)
                     chi2_seis = np.zeros(chi2_nonseis.shape)
-                    chi2 = chi2_nonseis
+                    chi2 = chi2_nonseis + chi2_seis
 
                 if (self.ifSetup) & (self.ifSetupSeismology):
                     # nonseis
@@ -425,7 +471,7 @@ class grid:
                         mod_inertia, mod_acfreq = None, None
 
                     chi2_nonseis, chi2_seis, chi2 = self.get_chi2_combined(obs, e_obs, mod, 
-                        obs_freq, obs_efreq, obs_l, 
+                        obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
                         self.weight_nonseis, self.weight_seis, ifCorrectSurface=self.ifCorrectSurface)
                     
@@ -440,16 +486,16 @@ class grid:
                     else: 
                         mod_inertia, mod_acfreq = None, None
 
-                    chi2_seis = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
+                    chi2_seis = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, ifCorrectSurface=self.ifCorrectSurface)
 
                     chi2_nonseis = np.zeros(chi2_seis.shape)
-                    chi2 = chi2_seis
+                    chi2 = chi2_seis + chi2_nonseis
 
                 lnlikelihood = -chi2/2.0 # proportionally speaking
                 lnprior = np.log(prior)
                 lnprob = lnprior + lnlikelihood
-            
+                
                 # only save models with a large likelihood - otherwise not useful and quickly fill up memory
                 fidx = chi2_nonseis < 23 # equal to likelihood<0.00001
 
@@ -472,7 +518,7 @@ class grid:
 
     def plot_parameter_distributions(self, samples, estimates, probs):
         # corner plot, overplotted with observation constraints
-
+        
         # Ndim = samples.shape[1]
         fig = corner.corner(samples, labels=estimates, quantiles=(0.16, 0.5, 0.84), weights=probs)
 
@@ -535,13 +581,11 @@ class grid:
 
 
     def plot_seis_echelles(self, obs_freq, obs_efreq, obs_l, model_parameters, model_chi2):
+        
         fig, axes = plt.subplots(figsize=(12,6), nrows=1, ncols=2, squeeze=False)
         axes = axes.reshape(-1)
 
-        if (self.obs_delta_nu is None):
-            delta_nu = np.abs(np.median(np.diff(np.sort(obs_freq[obs_l==0]))))  
-        else:
-            delta_nu = self.obs_delta_nu
+        delta_nu = self.Dnu
 
         markers = ['o', '^', 's', 'v']
         colors = ['blue', 'red', 'green', 'orange']     
@@ -637,7 +681,7 @@ class grid:
 
 
     def output_results(self, model_prob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters, starnames, plot=False):
-
+        
         Nstar = len(starnames)
         Nestimate = len(self.estimates)
         # Nseis = 4 if self.ifSetupSeismology else 0
@@ -710,7 +754,7 @@ class grid:
         Nthread: int
             The number of available threads to enable parallel computing.
         """
-
+        
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
         Nseis = 4 if self.ifSetupSeismology else 0
 
