@@ -775,8 +775,8 @@ class grid:
                 for istar in range(Nstar):
                     model_lnprob[istar] = np.append(model_lnprob[istar], result_list[ithread][0][istar])
                     model_chi2[istar] = np.append(model_chi2[istar], result_list[ithread][1][istar])
-                    model_chi2_seis[istar] = np.append(model_chi2[istar], result_list[ithread][2][istar])
-                    model_chi2_nonseis[istar] = np.append(model_chi2[istar], result_list[ithread][3][istar])
+                    model_chi2_seis[istar] = np.append(model_chi2_seis[istar], result_list[ithread][2][istar])
+                    model_chi2_nonseis[istar] = np.append(model_chi2_nonseis[istar], result_list[ithread][3][istar])
                     for iestimate in range(Nestimate+Nseis):
                         model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], result_list[ithread][4][istar][iestimate])
 
