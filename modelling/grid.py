@@ -300,9 +300,9 @@ class grid:
         # chi2_best = np.inf
         for imod in range(Nmodel):
             if Nmodel == 1:
-                tfreq, tl = mod_freq, mod_l
+                tfreq, tl = np.array(mod_freq), np.array(mod_l)
             else:
-                tfreq, tl = mod_freq[imod], mod_l[imod]
+                tfreq, tl = np.array(mod_freq[imod]), np.array(mod_l[imod])
         
             if ifCorrectSurface & (np.sum(np.isin(tl, 0))) :
                 if Nmodel == 1:
