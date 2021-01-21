@@ -799,7 +799,7 @@ class grid:
             # find the systematic uncertainty in frequency
             if self.ifSetupSeismology:
                 model_chi2_unweighted_seis = self.find_chi2_unweighted_seis(self.tracks)
-                self.mod_efreq_sys = np.array([np.median(model_chi2_unweighted_seis[istar][np.argsort(model_chi2_unweighted_seis[istar])[:20]])**0.5 for istar in range(Nstar)])
+                self.mod_efreq_sys = np.array([np.median(np.percentile(model_chi2_unweighted_seis[istar],1))**0.5 for istar in range(Nstar)])
 
             # assign prob to models
             model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis, model_parameters = self.assign_prob_to_models(self.tracks)
@@ -814,7 +814,7 @@ class grid:
                 result_list = pool.map(self.find_chi2_unweighted_seis, arglist)
                 pool.close()
                 model_chi2_unweighted_seis = [np.concatenate([r[istar] for r in result_list]) for istar in range(Nstar)]
-                self.mod_efreq_sys = np.array([np.median(model_chi2_unweighted_seis[istar][np.argsort(model_chi2_unweighted_seis[istar])[:20]])**0.5 for istar in range(Nstar)])
+                self.mod_efreq_sys = np.array([np.median(np.percentile(model_chi2_unweighted_seis[istar],1))**0.5 for istar in range(Nstar)])
 
             # assign prob to models
             pool = multiprocessing.Pool(processes=Nthread)
