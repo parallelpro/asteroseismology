@@ -298,11 +298,7 @@ class grid:
         """
         idx = (mod_l==0) & (mod_freq>(numax-4.3*Dnu)) & (mod_freq<(numax+4.3*Dnu))
         if np.sum(idx)>5:
-            mod_Dnu = np.median(np.diff(np.sort(mod_freq[idx])))
-            if mod_Dnu>=Dnu:
-                return np.median(np.diff(np.sort(mod_freq[idx])))
-            else:
-                return np.nan
+            return np.median(np.diff(np.sort(mod_freq[idx])))
         else:
             return np.nan
 
@@ -351,7 +347,7 @@ class grid:
         
             if ifCorrectSurface & (np.sum(np.isin(tl, 0))) :
                 mod_Dnu = self.get_model_Dnu(tfreq, tl, Dnu, numax)
-                if np.abs((mod_Dnu-Dnu)/Dnu) < 0.3:
+                if -0.02 < ((mod_Dnu-Dnu)/Dnu) < 0.3:
                     if Nmodel == 1:
                         tinertia, tacfreq = mod_inertia, mod_acfreq
                     else:
@@ -365,7 +361,7 @@ class grid:
                 chi2_seis[imod] = np.inf
             else:
                 tobs_freq, tobs_efreq, _, tfreq, tl = self.assign_n(obs_freq, obs_efreq, obs_l, tfreq, tl)
-                chi2_seis[imod] = np.mean((tobs_freq-tfreq)**2.0/(tobs_efreq**2.0+mod_efreq_sys**2.0))#/(Nobservable)
+                chi2_seis[imod] = np.sum((tobs_freq-tfreq)**2.0/(tobs_efreq**2.0+mod_efreq_sys**2.0))#/(Nobservable)
 
         return chi2_seis
 
