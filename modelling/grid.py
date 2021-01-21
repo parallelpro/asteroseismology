@@ -298,7 +298,11 @@ class grid:
         """
         idx = (mod_l==0) & (mod_freq>(numax-4.3*Dnu)) & (mod_freq<(numax+4.3*Dnu))
         if np.sum(idx)>5:
-            return np.median(np.diff(np.sort(mod_freq[idx])))
+            mod_Dnu = np.median(np.diff(np.sort(mod_freq[idx])))
+            if mod_Dnu>=Dnu:
+                return np.median(np.diff(np.sort(mod_freq[idx])))
+            else:
+                return np.nan
         else:
             return np.nan
 
