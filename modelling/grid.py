@@ -107,7 +107,7 @@ class grid:
     def setup_seismology(self, obs_freq, obs_efreq, obs_l, Dnu, numax,
             colModeFreq='mode_freq', colModeDegree='mode_l', colModeInertia='mode_inertia',
             colAcFreq='acoustic_cutoff', weight_nonseis=1, weight_seis=1, ifCorrectSurface=True,
-            obs_delta_nu=None, surface_correction_formula='cubic'):
+            surface_correction_formula='cubic'):
         """
         Setup the matching of oscillation frequencies (to construct the chi2_seismo)
         In order to setup, you should make sure that 'atrack[colModeFreq]' returns a list  
