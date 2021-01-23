@@ -1,6 +1,7 @@
 import matplotlib
 # matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import matplotlib.colors
 import numpy as np
 import os
 from astropy.io import ascii
@@ -617,102 +618,57 @@ class grid:
         return fig 
 
 
-    def plot_seis_echelles(self, obs_freq, obs_efreq, obs_l, model_parameters, model_chi2):
+    def plot_seis_echelles(self, obs_freq, obs_efreq, obs_l, model_parameters, model_chi2, Dnu):
         
-        fig, axes = plt.subplots(figsize=(12,6), nrows=1, ncols=2, squeeze=False)
-        axes = axes.reshape(-1)
-
-        delta_nu = self.Dnu
+        fig, axes = plt.subplots(figsize=(12,5), nrows=1, ncols=2, squeeze=False)
+        axes = axes.reshape(-1) # 0: uncorrected, 1: corrected
 
         markers = ['o', '^', 's', 'v']
         colors = ['blue', 'red', 'green', 'orange']     
 
-        # plot best model l=1
+        # plot observation frequencies
         for l in range(4):
             styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
-            axes[0].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-            axes[0].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l], **styles)
+            axes[0].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
+            axes[0].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
+            axes[1].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
+            axes[1].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
 
-        mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][np.nanargmin(model_chi2)] for i in range(len(model_parameters))]
-        # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
-        mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        if self.ifCorrectSurface:
-            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
-            # if (mod_freq_cor is None): return fig
-        else:
-            mod_freq_cor = mod_freq
+        norm = matplotlib.colors.Normalize(vmin=np.min(model_chi2), vmax=np.max(model_chi2))
+        cmap = plt.cm.get_cmap('gray')
+        for imod in np.argsort(model_chi2)[::-1]:
+            mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][imod] for i in range(len(model_parameters))]
+            mod_freq_uncor, mod_l_uncor = np.array(mod_freq), np.array(mod_l)
+            if self.ifCorrectSurface:
+                mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
+                # if (mod_freq_cor is None): return fig
+            else:
+                mod_freq_cor = mod_freq
+            mod_freq_cor, mod_l_cor = np.array(mod_freq_cor), np.array(mod_l)
 
-        # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
-        mod_freq_cor, mod_l_cor = mod_freq_cor, mod_l
+            for l in np.array(np.unique(obs_l), dtype=int):
+                # axes[0] plot uncorrected frequencies
+                z = np.zeros(np.sum(mod_l_uncor==l))+model_chi2[imod]
+                styles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
+                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu, mod_freq_uncor[mod_l_uncor==l], **styles)
+                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==l], **styles)
 
-        for l in [0,1]:
-            styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
-            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-            axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
+                # axes[1] plot surface corrected frequencies
+                z = np.zeros(np.sum(mod_l_cor==l))+model_chi2[imod]
+                styles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
+                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **styles)
+                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **styles)
+        
+        fig.subplots_adjust(right=0.8)
+        cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
+        fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap='gray'),cax=cbar_ax).set_label('chi2_seismic')
 
-            # surface corrected
-            styles = {'marker':markers[l], 'edgecolor':'black', 'facecolor':'None', 'zorder':2}
-            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-            axes[0].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-
-
-        # plot best model l=2
-        for l in range(4):
-            styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
-            axes[1].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-            axes[1].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l], **styles)
-
-        mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][np.nanargmin(model_chi2)] for i in range(len(model_parameters))]
-        # _, _, _, mod_freq_uncor, mod_l_uncor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
-        mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        if self.ifCorrectSurface:
-            mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
-            # if (mod_freq_cor is None): return fig
-        else:
-            mod_freq_cor = mod_freq
-        # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
-        mod_freq_cor, mod_l_cor = mod_freq_cor, mod_l
-
-        for l in [0,2]:
-            styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
-            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-            axes[1].scatter(mod_freq_uncor[mod_l_uncor==l] % delta_nu + delta_nu, mod_freq_uncor[mod_l_uncor==l], **styles)
-
-            # surface corrected
-            styles = {'marker':markers[l], 'edgecolor':'black', 'facecolor':'None', 'zorder':2}
-            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-            axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-
-
-        # # plot top 10 models
-        # for l in range(4):
-        #     styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
-        #     axes[1].scatter(obs_freq[obs_l==l] % delta_nu, obs_freq[obs_l==l], **styles)
-        #     axes[1].scatter(obs_freq[obs_l==l] % delta_nu + delta_nu, obs_freq[obs_l==l] + delta_nu, **styles)
-
-        # tmodel_parameters = [model_parameters[i][model_chi2 <= np.sort(model_chi2)[9]] for i in range(len(model_parameters))]
-        # for imod in range(len(tmodel_parameters[0])):
-        #     mod_freq, mod_l, mod_inertia, mod_acfreq = [tmodel_parameters[i][imod] for i in range(len(tmodel_parameters))]
-        #     # _, _, _, mod_freq, mod_l = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq, mod_l)
-        #     mod_freq_uncor, mod_l_uncor = mod_freq, mod_l
-        #     mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
-        #     if (mod_freq_cor is None): 
-        #         continue
-        #     # _, _, _, mod_freq_cor, mod_l_cor = self.assign_n(obs_freq, obs_efreq, obs_l, mod_freq_cor, mod_l)
-        #     mod_freq_cor, mod_l_cor = mod_freq_cor, mod_l
-
-        #     for l in range(4):
-        #         # styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
-        #         # axes[1].scatter(mod_freq[mod_l==l] % delta_nu, mod_freq[mod_l==l], **styles)
-        #         # axes[1].scatter(mod_freq[mod_l==l] % delta_nu + delta_nu, mod_freq[mod_l==l] + delta_nu, **styles)
-
-        #         # surface corrected
-        #         styles = {'marker':markers[l], 'edgecolor':'gray', 'facecolor':'None', 'zorder':2}
-        #         axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu, mod_freq_cor[mod_l_cor==l], **styles)
-        #         axes[1].scatter(mod_freq_cor[mod_l_cor==l] % delta_nu + delta_nu, mod_freq_cor[mod_l_cor==l] + delta_nu, **styles)
-
-        # # plot top 100 models
-        # axes[2]
+        for iax in range(len(axes)):
+            axes[iax].axis([0., Dnu*2, np.min(obs_freq)-Dnu*4, np.max(obs_freq)+Dnu*4])
+            axes[iax].set_ylabel('Frequency')
+            axes[iax].set_xlabel('Frequency mod Dnu {:0.3f}'.format(Dnu))
+        axes[0].set_title('Before correction')
+        axes[1].set_title('After correction')
 
         return fig
 
@@ -730,9 +686,9 @@ class grid:
             
             weights = model_prob[istar]
             logweights = -model_chi2[istar]/2.
-            index = (weights>=0.0) & np.isfinite(weights)
-            weights, logweights = weights[index], logweights[index] # weights[~index] = 0.
-            samples = (np.array(model_parameters[istar][0:Nestimate], dtype=float).T)[index,:]
+            idx = (weights>=0.0) & np.isfinite(weights)
+            weights, logweights = weights[idx], logweights[idx] # weights[~idx] = 0.
+            samples = (np.array(model_parameters[istar][0:Nestimate], dtype=float).T)[idx,:]
 
             if plot:
                 if samples.shape[0] <= samples.shape[1]:
@@ -754,8 +710,9 @@ class grid:
 
                     # plot echelle diagrams
                     if self.ifSetupSeismology:
+                        idx = np.argsort(model_chi2_seis[istar])[:10]
                         fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
-                                model_parameters[istar][-4:], model_chi2[istar])
+                                model_parameters[istar][-4:][idx], model_chi2_seis[istar][idx], self.Dnu[istar])
                         fig.savefig(toutdir+"echelles.png")
                         plt.close()
 
