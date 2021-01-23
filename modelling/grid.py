@@ -702,11 +702,11 @@ class grid:
                     fig.savefig(toutdir+"triangle.png")
                     plt.close()
 
-                    # plot HR diagrams
-                    fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
-                    if not (fig is None): 
-                        fig.savefig(toutdir+"HR.png")
-                        plt.close()
+                    # # plot HR diagrams
+                    # fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
+                    # if not (fig is None): 
+                    #     fig.savefig(toutdir+"HR.png")
+                    #     plt.close()
 
                     # plot echelle diagrams
                     if self.ifSetupSeismology:
