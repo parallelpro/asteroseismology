@@ -696,10 +696,20 @@ class grid:
                     f.close()
                 else:
                     # plot prob distributions
-                    # fig = corner.corner(samples, labels=self.estimates, quantiles=(0.16, 0.5, 0.84), weights=weights)
-                    fig = self.plot_parameter_distributions(samples, self.estimates, weights)
-                    fig.savefig(toutdir+"triangle.png")
-                    plt.close()
+                    if (self.ifSetup):
+                        fig = self.plot_parameter_distributions(samples, self.estimates, prob_nonseis)
+                        fig.savefig(toutdir+"corner_prob_classic.png")
+                        plt.close()
+
+                    if (self.ifSetupSeismology):
+                        fig = self.plot_parameter_distributions(samples, self.estimates, prob_seis)
+                        fig.savefig(toutdir+"corner_prob_seismic.png")
+                        plt.close()
+
+                    if (self.ifSetup & self.ifSetupSeismology):
+                        fig = self.plot_parameter_distributions(samples, self.estimates, prob)
+                        fig.savefig(toutdir+"corner_prob.png")
+                        plt.close()
 
                     # # plot HR diagrams
                     # fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
