@@ -722,12 +722,21 @@ class grid:
                         idx = np.argsort(model_chi2_seis[istar])[:10]
                         fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
                                 model_parameters[istar][-4:][idx], model_chi2_seis[istar][idx], self.Dnu[istar])
-                        fig.savefig(toutdir+"echelles.png")
+                        fig.savefig(toutdir+"echelle_top10_prob_seismic.png")
                         plt.close()
 
                     # write prob distribution summary file
-                    results = quantile(samples, (0.16, 0.5, 0.84), weights=weights)
-                    ascii.write(Table(results, names=self.estimates), toutdir+"summary.txt",format="csv", overwrite=True)
+                    if (self.ifSetup):
+                        results = quantile(samples, (0.16, 0.5, 0.84), weights=prob_nonseis)
+                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob_classic.txt",format="csv", overwrite=True)
+
+                    if (self.ifSetupSeismology):
+                        results = quantile(samples, (0.16, 0.5, 0.84), weights=prob_seis)
+                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob_seismic.txt",format="csv", overwrite=True)
+
+                    if (self.ifSetup & self.ifSetupSeismology):
+                        results = quantile(samples, (0.16, 0.5, 0.84), weights=prob)
+                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
 
             # endofif
 
