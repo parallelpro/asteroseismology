@@ -684,11 +684,10 @@ class grid:
             if not os.path.exists(toutdir):
                 os.mkdir(toutdir)
             
-            weights = model_prob[istar]
-            logweights = -model_chi2[istar]/2.
-            idx = (weights>=0.0) & np.isfinite(weights)
-            weights, logweights = weights[idx], logweights[idx] # weights[~idx] = 0.
-            samples = (np.array(model_parameters[istar][0:Nestimate], dtype=float).T)[idx,:]
+            prob = np.exp(-model_chi2[istar]/2.)
+            prob_nonseis = np.exp(-(model_chi2_nonseis[istar])/2.)
+            prob_seis = np.exp(-(model_chi2_seis[istar])/2.)
+            samples = (np.array(model_parameters[istar][0:Nestimate], dtype=float).T)
 
             if plot:
                 if samples.shape[0] <= samples.shape[1]:
