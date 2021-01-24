@@ -706,10 +706,10 @@ class grid:
                         fig.savefig(toutdir+"corner_prob_seismic.png")
                         plt.close()
 
-                    if (self.ifSetup & self.ifSetupSeismology):
-                        fig = self.plot_parameter_distributions(samples, self.estimates, prob)
-                        fig.savefig(toutdir+"corner_prob.png")
-                        plt.close()
+                    # output the prob (prior included)
+                    fig = self.plot_parameter_distributions(samples, self.estimates, prob)
+                    fig.savefig(toutdir+"corner_prob.png")
+                    plt.close()
 
                     # # plot HR diagrams
                     # fig = self.plot_HR_diagrams(samples, self.estimates, zvals=logweights)
@@ -734,9 +734,9 @@ class grid:
                         results = quantile(samples, (0.16, 0.5, 0.84), weights=prob_seis)
                         ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob_seismic.txt",format="csv", overwrite=True)
 
-                    if (self.ifSetup & self.ifSetupSeismology):
-                        results = quantile(samples, (0.16, 0.5, 0.84), weights=prob)
-                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
+                    # output the prob (prior included)
+                    results = quantile(samples, (0.16, 0.5, 0.84), weights=prob)
+                    ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
 
             # endofif
 
