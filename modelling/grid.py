@@ -814,7 +814,7 @@ class grid:
             # model_prob[istar] /= np.nansum(model_lnprob[istar])
             # numerically more stable to handle extremely small probabilities
             lnprob = np.zeros(len(model_lnprob[istar]))
-            idx = (np.isfinite(model_lnprob[istar])) & (model_lnprob[istar]<-50)
+            idx = (np.isfinite(model_lnprob[istar])) & (model_lnprob[istar]>-50)
             if np.sum(idx)>0: lnprob[idx] = model_lnprob[istar][idx]-logsumexp(model_lnprob[istar][idx])
             lnprob[~idx] = -np.inf
             model_prob[istar] = np.exp(lnprob) 
