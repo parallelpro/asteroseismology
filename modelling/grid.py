@@ -106,7 +106,8 @@ class grid:
 
     def setup_seismology(self, obs_freq, obs_efreq, obs_l, Dnu, numax,
             colModeFreq='mode_freq', colModeDegree='mode_l', colModeInertia='mode_inertia',
-            colAcFreq='acoustic_cutoff', weight_nonseis=1, weight_seis=1, ifCorrectSurface=True,
+            colAcFreq='acoustic_cutoff', colModeNode='mode_n', 
+            weight_nonseis=1, weight_seis=1, ifCorrectSurface=True,
             surface_correction_formula='cubic'):
         """
         Setup the matching of oscillation frequencies (to construct the chi2_seismo)
@@ -150,6 +151,9 @@ class grid:
         colAcFreq: str, default 'colAcFreq'
             The acoustic cutoff frequency column name retrived from atrack.  
 
+        colModeNode: str, default 'mode_n'
+            The mode radial node number retrieved from atrack.
+
         ifCorrectSurface: bool, default True
             if True, then correct model frequencies using the formula 
             of Ball & Gizon (2014) (the inverse and cubic term).
@@ -166,6 +170,7 @@ class grid:
         self.colModeDegree = colModeDegree
         self.colModeInertia = colModeInertia
         self.colAcFreq = colAcFreq
+        self.colModeNode = colModeNode
         self.weight_nonseis = weight_nonseis
         self.weight_seis = weight_seis
         self.ifCorrectSurface = ifCorrectSurface
@@ -457,7 +462,7 @@ class grid:
         Nestimate = len(self.estimates)
         Nstar = len(self.starname)
         Ntrack = len(tracks)
-        Nseis = 4 if self.ifSetupSeismology else 0
+        Nseis = 5 if self.ifSetupSeismology else 0
 
         model_chi2 = [np.array([]) for istar in range(Nstar)]
         model_chi2_seis = [np.array([]) for istar in range(Nstar)]
@@ -499,6 +504,7 @@ class grid:
                     obs_freq, obs_efreq, obs_l = self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar]
                     mod_freq = np.array(atrack[self.colModeFreq][1:-1])
                     mod_l = np.array(atrack[self.colModeDegree][1:-1])
+                    mod_n = np.array(atrack[self.colModeNode][1:-1])
                     if self.ifCorrectSurface:
                         mod_inertia = np.array(atrack[self.colModeInertia][1:-1])
                         mod_acfreq = np.array(atrack[self.colAcFreq][1:-1])
@@ -516,6 +522,7 @@ class grid:
                     obs_freq, obs_efreq, obs_l = self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar]
                     mod_freq = np.array(atrack[self.colModeFreq][1:-1])
                     mod_l = np.array(atrack[self.colModeDegree][1:-1])
+                    mod_n = np.array(atrack[self.colModeNode][1:-1])
                     if self.ifCorrectSurface:
                         mod_inertia = np.array(atrack[self.colModeInertia][1:-1])
                         mod_acfreq = np.array(atrack[self.colAcFreq][1:-1])
@@ -542,7 +549,7 @@ class grid:
                     model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], atrack[self.estimates[iestimate]][1:-1][fidx])
                 
                 if self.ifSetupSeismology:
-                    for iseis, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq]):
+                    for iseis, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq, self.colModeNode]):
                         model_parameters[istar][Nestimate+iseis] = np.append(model_parameters[istar][Nestimate+iseis], atrack[para][1:-1][fidx])
 
                 # posterior
@@ -637,7 +644,7 @@ class grid:
         norm = matplotlib.colors.Normalize(vmin=np.min(model_chi2), vmax=np.max(model_chi2))
         cmap = plt.cm.get_cmap('gray')
         for imod in np.argsort(model_chi2)[::-1]:
-            mod_freq, mod_l, mod_inertia, mod_acfreq = [model_parameters[i][imod] for i in range(len(model_parameters))]
+            mod_freq, mod_l, mod_inertia, mod_acfreq, mod_n = [model_parameters[i][imod] for i in range(len(model_parameters))]
             mod_freq_uncor, mod_l_uncor = np.array(mod_freq), np.array(mod_l)
             if self.ifCorrectSurface:
                 mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
@@ -721,7 +728,7 @@ class grid:
                     if self.ifSetupSeismology:
                         idx = np.argsort(model_chi2_seis[istar])[:10]
                         fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
-                                model_parameters[istar][-4:][idx], model_chi2_seis[istar][idx], self.Dnu[istar])
+                                model_parameters[istar][-5:][idx], model_chi2_seis[istar][idx], self.Dnu[istar])
                         fig.savefig(toutdir+"echelle_top10_prob_seismic.png")
                         plt.close()
 
@@ -747,7 +754,7 @@ class grid:
                     h5f.create_dataset(self.estimates[i], data=np.array(model_parameters[istar][i],dtype=float))
                 # seismic parameters
                 if self.ifSetupSeismology:
-                    for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia]):
+                    for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colModeNode]):
                         for j in range(len(model_parameters[istar][len(self.estimates)+i])):
                             h5f.create_dataset(para+'/{:0.0f}'.format(j), data=np.array(model_parameters[istar][len(self.estimates)+i][j], dtype=float))
                 # chi2 parameters
@@ -768,7 +775,7 @@ class grid:
         """
         
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
-        Nseis = 4 if self.ifSetupSeismology else 0
+        Nseis = 5 if self.ifSetupSeismology else 0
 
         if Nthread == 1:
             # find the systematic uncertainty in frequency
