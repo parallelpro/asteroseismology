@@ -665,7 +665,20 @@ class grid:
                 styles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
                 axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **styles)
                 axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **styles)
-        
+
+            # label the radial orders n for l=0 modes
+            if (imod == np.argsort(model_chi2)[::-1][0]) & np.sum(mod_l_uncor==0):
+                for n in mod_n:
+                    nstr = '{:0.0f}'.format(n)
+                    # axes[0] plot uncorrected frequencies
+                    textstyles = {'fontsize':12, 'ha':'center', 'va':'center', 'zorder':100, 'color':'purple'}
+                    axes[0].text((mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu) % Dnu, mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu, nstr, **textstyles)
+                    axes[0].text((mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu) % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu, nstr, **textstyles)
+
+                    # axes[1] plot surface corrected frequencies
+                    axes[1].text((mod_freq_cor[mod_l_cor==0]+0.05*Dnu) % Dnu, mod_freq_cor[mod_l_cor==0]+0.05*Dnu, nstr, **textstyles)
+                    axes[1].text((mod_freq_cor[mod_l_cor==0]+0.05*Dnu) % Dnu + Dnu, mod_freq_cor[mod_l_cor==0]+0.05*Dnu, nstr, **textstyles)
+
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
         fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap='gray'),cax=cbar_ax).set_label('chi2_seismic')
