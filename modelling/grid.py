@@ -666,16 +666,16 @@ class grid:
 
             # label the radial orders n for l=0 modes
             if (imod == np.argsort(model_chi2)[::-1][0]) & np.sum(mod_l_uncor==0):
-                for n in mod_n:
+                for idxn, n in enumerate(mod_n):
                     nstr = '{:0.0f}'.format(n)
                     # axes[0] plot uncorrected frequencies
                     textstyles = {'fontsize':12, 'ha':'center', 'va':'center', 'zorder':100, 'color':'purple'}
-                    axes[0].text((mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu) % Dnu, mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu, nstr, **textstyles)
-                    axes[0].text((mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu) % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==0]+0.05*Dnu, nstr, **textstyles)
+                    axes[0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                    axes[0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
 
                     # axes[1] plot surface corrected frequencies
-                    axes[1].text((mod_freq_cor[mod_l_cor==0]+0.05*Dnu) % Dnu, mod_freq_cor[mod_l_cor==0]+0.05*Dnu, nstr, **textstyles)
-                    axes[1].text((mod_freq_cor[mod_l_cor==0]+0.05*Dnu) % Dnu + Dnu, mod_freq_cor[mod_l_cor==0]+0.05*Dnu, nstr, **textstyles)
+                    axes[1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                    axes[1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
 
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
