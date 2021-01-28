@@ -765,7 +765,8 @@ class grid:
                     h5f.create_dataset(self.estimates[i], data=np.array(model_parameters[istar][i],dtype=float))
                 # seismic parameters
                 if self.ifSetupSeismology:
-                    for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colModeNode]):
+                    for i, para in enumerate([self.colModeFreq, self.colModeDegree, self.colModeInertia, self.colAcFreq, self.colModeNode]):
+                        if i==3: continue
                         for j in range(len(model_parameters[istar][len(self.estimates)+i])):
                             h5f.create_dataset(para+'/{:0.0f}'.format(j), data=np.array(model_parameters[istar][len(self.estimates)+i][j], dtype=float))
                 # chi2 parameters
