@@ -656,15 +656,13 @@ class grid:
             for l in np.array(np.unique(obs_l), dtype=int):
                 # axes[0] plot uncorrected frequencies
                 z = np.zeros(np.sum(mod_l_uncor==l))+model_chi2[imod]
-                styles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
-                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu, mod_freq_uncor[mod_l_uncor==l], **styles)
-                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==l], **styles)
+                scatterstyles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
+                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
+                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
 
                 # axes[1] plot surface corrected frequencies
-                z = np.zeros(np.sum(mod_l_cor==l))+model_chi2[imod]
-                styles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
-                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **styles)
-                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **styles)
+                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
+                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
 
             # label the radial orders n for l=0 modes
             if (imod == np.argsort(model_chi2)[::-1][0]) & np.sum(mod_l_uncor==0):
