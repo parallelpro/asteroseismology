@@ -665,8 +665,8 @@ class grid:
                 axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
 
             # label the radial orders n for l=0 modes
-            if (imod == np.argsort(model_chi2)[::-1][0]) & np.sum(mod_l_uncor==0):
-                for idxn, n in enumerate(mod_n):
+            if (imod == np.argsort(model_chi2)[0]) & np.sum(mod_l_uncor==0):
+                for idxn, n in enumerate(mod_n[mod_l_uncor==0]):
                     nstr = '{:0.0f}'.format(n)
                     # axes[0] plot uncorrected frequencies
                     textstyles = {'fontsize':12, 'ha':'center', 'va':'center', 'zorder':100, 'color':'purple'}
