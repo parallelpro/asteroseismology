@@ -8,7 +8,7 @@ from .functions import gaussian
 
 __all__ = ["a_correlate", "c_correlate", 
         "smoothWrapper", "powerSpectrumSmoothWrapper",
-        "medianFilter", "psd", "arg_closest_node",
+        "medianSmooth", "medianFilter", "psd", "arg_closest_node",
         "quantile"]
 
 def a_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
@@ -183,14 +183,17 @@ def smooth(x, window_len = 11, window = "hanning"):
     y = np.convolve(w/w.sum(),s,mode="same")
     return y
 
-
-def medianFilter(x, y, period, yerr=None):
-    if yerr==None: iferror=False
+def medianSmooth(x, y, period):
     binsize = np.median(np.diff(x))
     kernelsize = int(period/binsize)
     if kernelsize%2==0: kernelsize+=1
     from scipy.signal import medfilt
     yf = medfilt(y,kernel_size=kernelsize)
+    return yf
+
+def medianFilter(x, y, period, yerr=None):
+    if yerr==None: iferror=False
+    yf = medianSmooth(x, y, period)
     ynew = y/yf #y-yf
     if iferror: yerrnew = yerr/yf
 
