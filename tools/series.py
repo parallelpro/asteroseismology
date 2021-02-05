@@ -186,7 +186,7 @@ def smooth(x, window_len = 11, window = "hanning"):
 
 def medianFilter(x, y, period, yerr=None):
     if yerr==None: iferror=False
-    binsize = np.median(x[1:-1]-x[0:-2])
+    binsize = np.median(np.diff(x))
     kernelsize = int(period/binsize)
     if kernelsize%2==0: kernelsize+=1
     from scipy.signal import medfilt
