@@ -833,13 +833,16 @@ class grid:
             pool.close()
 
             # merge probs from different threads
-            model_lnprob, model_chi2, model_chi2_seis, model_chi2_nonseis = [[np.array([]) for istar in range(Nstar)] for i in range(4)]
-            model_parameters = [[np.array([]) for iestimate in range(Nestimate+Nseis)] for istar in range(Nstar)] 
+            model_lnprob, model_chi2, model_chi2_nonseis = [[np.array([]) for istar in range(Nstar)] for i in range(3)]
+            model_chi2_seis = [[np.array([]) for il in range(len(result_list[0][2][istar]))] for istar in range(Nstar)]
+            model_parameters = [[np.array([], dtype=object) for iestimate in range(Nestimate+Nseis)] for istar in range(Nstar)] 
             for ithread in range(Nthread):
                 for istar in range(Nstar):
                     model_lnprob[istar] = np.append(model_lnprob[istar], result_list[ithread][0][istar])
                     model_chi2[istar] = np.append(model_chi2[istar], result_list[ithread][1][istar])
-                    model_chi2_seis[istar] = np.append(model_chi2_seis[istar], result_list[ithread][2][istar])
+                    Nl = len(result_list[0][2][istar])
+                    for il in range(Nl):
+                        model_chi2_seis[istar][il] = np.append(model_chi2_seis[istar][il], result_list[ithread][2][istar][il])
                     model_chi2_nonseis[istar] = np.append(model_chi2_nonseis[istar], result_list[ithread][3][istar])
                     for iestimate in range(Nestimate+Nseis):
                         model_parameters[istar][iestimate] = np.append(model_parameters[istar][iestimate], result_list[ithread][4][istar][iestimate])
