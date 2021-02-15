@@ -21,8 +21,8 @@ from asteroseismology.tools import return_2dmap_axes, quantile
 __all__ = ['get_surface_correction']
 
 
-def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, 
-                            formula='cubic'):
+def get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, 
+                            formula='cubic', ifFullOutput=False):
     
     # formula is one of 'cubic', 'BG14'
     if not (formula in ['cubic', 'cubic_inverse', 'kjeldsen']):
@@ -65,6 +65,7 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
                 delta_freq = (coeff[0]*(new_mod_freq/mod_acfreq)**-1.  + coeff[1]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
                 new_mod_freq += delta_freq
             except:
+                coeff = np.zeros(2)
                 print('An exception occurred when correcting surface effect using cubic_inverse form.')
                 # pass
 
@@ -80,6 +81,7 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
                 delta_freq = ( coeff[0]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
                 new_mod_freq += delta_freq
             except:
+                coeff = np.zeros(1)
                 print('An exception occurred when correcting surface effect using cubic form.')
                 # pass
 
@@ -95,13 +97,18 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
                 # apply corrections
                 try:
                     coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
-                    delta_freq = ( np.exp(coeff[0])*(new_mod_freq/mod_inertia)**coeff[1] )
+                    coeff[0] = np.exp(coeff[0])
+                    delta_freq = ( coeff[0]*(new_mod_freq/mod_inertia)**coeff[1] )
                     new_mod_freq += delta_freq
                 except:
+                    coeff = np.zeros(2)
                     print('An exception occurred when correcting surface effect using kjeldsen form.')
                     # pass
             else:
+                coeff = np.zeros(2)
                 print('Using kjeldsen form, not enough (at least 3) modes with negative difference.')
                 # pass
-
-    return new_mod_freq
+    if ifFullOutput:
+        return new_mod_freq, coeff
+    else:
+        return new_mod_freq
