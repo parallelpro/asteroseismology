@@ -15,17 +15,18 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 from scipy.special import logsumexp
 
-from ..tools import return_2dmap_axes, quantile
+from asteroseismology.tools import return_2dmap_axes, quantile
 
 
 __all__ = ['get_surface_correction']
 
 
-def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula='cubic'):
+def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, 
+                            formula='cubic'):
     
     # formula is one of 'cubic', 'BG14'
-    if not (formula in ['cubic', 'BG14']):
-        raise ValueError('formula must be one of ``cubic`` and ``BG14``. ')
+    if not (formula in ['cubic', 'cubic_inverse', 'kjeldsen']):
+        raise ValueError('formula must be one of ``cubic``, ``cubic_inverse`` and ``kjeldsen''. ')
 
     new_mod_freq = np.array(mod_freq) 
 
@@ -51,7 +52,7 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
         # if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
         #     return None
 
-        if formula == 'BG14':
+        if formula == 'cubic_inverse':
             A1 = (new_mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
             A2 = (new_mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
             AT = np.array([A1, A2])
@@ -64,7 +65,7 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
                 delta_freq = (coeff[0]*(new_mod_freq/mod_acfreq)**-1.  + coeff[1]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
                 new_mod_freq += delta_freq
             except:
-                print('An exception occurred when correcting surface effect.')
+                print('An exception occurred when correcting surface effect using cubic_inverse form.')
                 # pass
 
         if formula == 'cubic':
@@ -79,7 +80,28 @@ def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, 
                 delta_freq = ( coeff[0]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
                 new_mod_freq += delta_freq
             except:
-                print('An exception occurred when correcting surface effect.')
+                print('An exception occurred when correcting surface effect using cubic form.')
+                # pass
+
+        if formula == 'kjeldsen':
+            if np.sum(b<0)>3:
+                idx = b<0
+                A1 = np.ones(len(new_mod_freq_l0[idx]))
+                A2 = np.log(new_mod_freq_l0[idx]/mod_inertia_l0[idx])
+                AT = np.array([A1, A2])
+                A = np.swapaxes(AT, 0, 1)
+                b = np.log(b[idx]).reshape(-1,1)
+
+                # apply corrections
+                try:
+                    coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
+                    delta_freq = ( np.exp(coeff[0])*(new_mod_freq/mod_inertia)**coeff[1] )
+                    new_mod_freq += delta_freq
+                except:
+                    print('An exception occurred when correcting surface effect using kjeldsen form.')
+                    # pass
+            else:
+                print('Using kjeldsen form, not enough (at least 3) modes with negative difference.')
                 # pass
 
     return new_mod_freq
