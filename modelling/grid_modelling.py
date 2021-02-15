@@ -15,8 +15,8 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 from scipy.special import logsumexp
 
-from ..tools import return_2dmap_axes, quantile
-
+from asteroseismology.tools import return_2dmap_axes, quantile
+from asteroseismology.modelling.surface_correction import get_surface_correction
 
 __all__ = ['grid']
 
@@ -220,70 +220,6 @@ class grid:
         return (new_obs_freq, new_obs_efreq, new_obs_l, new_mod_freq, new_mod_l, *new_mod_args)
 
 
-    def get_surface_correction(self, obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula='cubic'):
-        
-        # formula is one of 'cubic', 'BG14'
-        if not (formula in ['cubic', 'BG14']):
-            raise ValueError('formula must be one of ``cubic`` and ``BG14``. ')
-
-        new_mod_freq = np.array(mod_freq) 
-
-        if (np.sum(np.isin(mod_l, 0))) :
-            # if correction is needed, first we use l=0 modes to derive correction factors
-            # if obs_l don't have a 0, well I am not expecting this! 
-            obs_freq_l0 = obs_freq[obs_l==0]
-            new_mod_freq_l0 = new_mod_freq[mod_l==0]
-            mod_inertia_l0 = mod_inertia[mod_l==0]
-
-            # because we don't know n_p or n_g from observation (if we do that will save tons of effort here)
-            # we need to assign each obs mode with a model mode
-            # this can be seen as a linear sum assignment problem, also known as minimun weight matching in bipartite graphs
-            cost = np.abs(obs_freq_l0.reshape(-1,1) - new_mod_freq_l0)
-            row_ind, col_ind = linear_sum_assignment(cost)
-            obs_freq_l0 = obs_freq_l0[row_ind]
-            new_mod_freq_l0 = new_mod_freq_l0[col_ind]
-            mod_inertia_l0 = mod_inertia_l0[col_ind]
-
-            # regression
-            b = obs_freq_l0-new_mod_freq_l0
-            # # avoid selecting reversed models
-            # if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
-            #     return None
-
-            if formula == 'BG14':
-                A1 = (new_mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
-                A2 = (new_mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
-                AT = np.array([A1, A2])
-                A = AT.T
-                b = b.reshape(-1,1)
-
-                # apply corrections
-                try:
-                    coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
-                    delta_freq = (coeff[0]*(new_mod_freq/mod_acfreq)**-1.  + coeff[1]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
-                    new_mod_freq += delta_freq
-                except:
-                    print('An exception occurred when correcting surface effect.')
-                    # pass
-
-            if formula == 'cubic':
-                A2 = (new_mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
-                AT = np.array([A2])
-                A = AT.T
-                b = b.reshape(-1,1)
-
-                # apply corrections
-                try:
-                    coeff = np.dot(np.dot(np.linalg.inv(np.dot(AT,A)), AT), b)
-                    delta_freq = ( coeff[0]*(new_mod_freq/mod_acfreq)**3. ) / mod_inertia
-                    new_mod_freq += delta_freq
-                except:
-                    print('An exception occurred when correcting surface effect.')
-                    # pass
-
-        return new_mod_freq
-
-
     def get_model_Dnu(self, mod_freq, mod_l, Dnu, numax):
         
         """
@@ -365,7 +301,7 @@ class grid:
                     else:
                         mod_inertia_imod, mod_acfreq_imod = mod_inertia[imod], mod_acfreq[imod]
 
-                    mod_freq_imod = self.get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, mod_inertia_imod, mod_acfreq_imod, formula=self.surface_correction_formula)
+                    mod_freq_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, mod_inertia_imod, mod_acfreq_imod, formula=self.surface_correction_formula)
                 else:
                     mod_freq_imod = None
 
@@ -663,7 +599,7 @@ class grid:
             mod_freq, mod_l, mod_inertia, mod_acfreq, mod_n = [model_parameters[i][imod] for i in range(len(model_parameters))]
             mod_freq_uncor, mod_l_uncor = np.array(mod_freq), np.array(mod_l)
             if self.ifCorrectSurface:
-                mod_freq_cor = self.get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
+                mod_freq_cor = get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
                 # if (mod_freq_cor is None): return fig
             else:
                 mod_freq_cor = np.array(mod_freq)
