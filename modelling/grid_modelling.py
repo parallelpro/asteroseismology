@@ -17,6 +17,7 @@ from scipy.special import logsumexp
 
 from asteroseismology.tools import return_2dmap_axes, quantile
 from asteroseismology.modelling.surface_correction import get_surface_correction
+from asteroseismology.modelling.model_Dnu import get_model_Dnu
 
 __all__ = ['grid']
 
@@ -220,33 +221,6 @@ class grid:
         return (new_obs_freq, new_obs_efreq, new_obs_l, new_mod_freq, new_mod_l, *new_mod_args)
 
 
-    def get_model_Dnu(self, mod_freq, mod_l, Dnu, numax):
-        
-        """
-        Calculate model Dnu around numax.
-        ----------
-        Input:
-        mod_freq: array_like[Nmode_mod]
-            model's mode frequency
-        mod_l: array_like[Nmode_mod]
-            model's mode degree
-        Dnu: float
-            the p-mode large separation in muHz
-        numax: float
-            the frequency of maximum power in muHz
-
-        ----------
-        Return:
-        mod_Dnu: float
-
-        """
-        idx = (mod_l==0) & (mod_freq>(numax-4.3*Dnu)) & (mod_freq<(numax+4.3*Dnu))
-        if np.sum(idx)>5:
-            return np.median(np.diff(np.sort(mod_freq[idx])))
-        else:
-            return np.nan
-
-
     def get_chi2_seismology(self, Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 ifCorrectSurface=True, mod_efreq_sys=None):
@@ -294,7 +268,7 @@ class grid:
                 mod_freq_imod, mod_l_imod = np.array(mod_freq[imod]), np.array(mod_l[imod])
         
             if ifCorrectSurface & (np.sum(np.isin(mod_l_imod, 0))) :
-                mod_Dnu = self.get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
+                mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
                 if -0.02 < ((mod_Dnu-Dnu)/Dnu) < 0.3:
                     if Nmodel == 1:
                         mod_inertia_imod, mod_acfreq_imod = mod_inertia, mod_acfreq
