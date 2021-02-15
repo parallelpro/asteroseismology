@@ -26,11 +26,11 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
 
     ----------
     Optional input:
-    obs_freq: array_like[Nmode_mod]
+    obs_freq: array_like[Nmode_obs]
         observation's mode frequency
-    obs_efreq: array_like[Nmode_mod]
+    obs_efreq: array_like[Nmode_obs]
         observation's mode frequency uncertainty
-    obs_l: array_like[Nmode_mod]
+    obs_l: array_like[Nmode_obs]
         observation's mode degree
 
     ----------
