@@ -51,13 +51,13 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
 
         # assign n
         mod_freq_l0 = np.sort(mod_freq[mod_l==0])
-        mod_n = np.zeros(len(mod_freq_l0))
-        for imod in range(len(mod_n)-1):
-            mod_n[(imod+1):] = mod_n[(imod+1):] + np.round((mod_freq_l0[imod+1]-mod_freq_l0[imod])/Dnu)
-
-        sigma = 1/np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
-        
-        p = np.polyfit(mod_n, mod_freq_l0, 1, w=1/sigma)
+        # mod_n = np.zeros(len(mod_freq_l0))
+        # for imod in range(len(mod_n)-1):
+        #     mod_n[(imod+1):] = mod_n[(imod+1):] + np.round((mod_freq_l0[imod+1]-mod_freq_l0[imod])/Dnu)
+        mod_n = np.arange(len(mod_freq_l0))
+        # sigma = 1/np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
+        weight = np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
+        p = np.polyfit(mod_n, mod_freq_l0, 1, w=weight)
         mod_Dnu = p[0]
 
     else:
@@ -73,10 +73,11 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
         mod_freq_l0, obs_freq_l0, obs_efreq_l0 = mod_freq_l0[idx], obs_freq_l0[idx], obs_efreq_l0[idx]
 
         # assign n
-        mod_n = np.zeros(len(mod_freq_l0))
-        for imod in range(len(mod_n)-1):
-            mod_n[(imod+1):] = mod_n[(imod+1):] + np.round((mod_freq_l0[imod+1]-mod_freq_l0[imod])/Dnu)
-
+        mod_freq_l0 = np.sort(mod_freq[mod_l==0])
+        # mod_n = np.zeros(len(mod_freq_l0))
+        # for imod in range(len(mod_n)-1):
+        #     mod_n[(imod+1):] = mod_n[(imod+1):] + np.round((mod_freq_l0[imod+1]-mod_freq_l0[imod])/Dnu)
+        mod_n = np.arange(len(mod_freq_l0))
         sigma = obs_efreq_l0
         p = np.polyfit(mod_n, mod_freq_l0, 1, w=1/sigma)  
         mod_Dnu = p[0]      
