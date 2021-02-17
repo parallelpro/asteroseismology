@@ -267,6 +267,7 @@ class grid:
             else:
                 mod_freq_imod, mod_l_imod = np.array(mod_freq[imod]), np.array(mod_l[imod])
         
+            new_mod_freq_imod = None
             if ifCorrectSurface & (np.sum(np.isin(mod_l_imod, 0))) :
                 mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
                 if -0.02 < ((mod_Dnu-Dnu)/Dnu) < 0.3:
@@ -275,18 +276,17 @@ class grid:
                     else:
                         mod_inertia_imod, mod_acfreq_imod = mod_inertia[imod], mod_acfreq[imod]
 
-                    mod_freq_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, mod_inertia_imod, mod_acfreq_imod, formula=self.surface_correction_formula)
-                else:
-                    mod_freq_imod = None
+                    new_mod_freq_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, mod_inertia_imod, mod_acfreq_imod, formula=self.surface_correction_formula)
 
-            if (mod_freq_imod is None):
+
+            if (new_mod_freq_imod is None):
                 for il, l in enumerate(obs_l_unique):
                     chi2_seis[il][imod] = np.inf
             else:
                 for il, l in enumerate(obs_l_unique):
                     oidx, midx = obs_l==l, mod_l_imod==l
-                    obs_freq_imod_il, obs_efreq_imod_il, _, mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], mod_freq_imod[midx], mod_l_imod[midx])
-                    chi2_seis[il][imod] = np.sum((obs_freq_imod_il-mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
+                    obs_freq_imod_il, obs_efreq_imod_il, _, new_mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], new_mod_freq_imod[midx], mod_l_imod[midx])
+                    chi2_seis[il][imod] = np.sum((obs_freq_imod_il-new_mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
 
         return chi2_seis
 
