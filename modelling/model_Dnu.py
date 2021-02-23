@@ -57,8 +57,12 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
         mod_n = np.arange(len(mod_freq_l0))
         # sigma = 1/np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
         weight = np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
-        p = np.polyfit(mod_n, mod_freq_l0, 1, w=weight)
-        mod_Dnu = p[0]
+        idx = weight>1e-100
+        if np.sum(idx)>6:
+            p = np.polyfit(mod_n[idx], mod_freq_l0[idx], 1, w=weight[idx])
+            mod_Dnu = p[0]
+        else:
+            mod_Dnu = np.nan
 
     else:
         # we need to assign each obs mode with a model mode
