@@ -2,13 +2,19 @@ import numpy as np
 
 
 class stardata():
-    def __init__(self):
+    def __init__(self, initialize=None):
         '''
         This is a container for one dimensional star data.
         Each element must be a numpy array.
         
         Construct a stardata container:
         star = stardata()
+
+        Construct a stardata container from existing containers:
+        star0 = stardata()
+        star1 = stardata()
+        star = stardata([star0])
+        star = stardata([star0, star1])
 
         Store values:
         star['Teff'] = np.arange(5300, 5400)
@@ -19,10 +25,32 @@ class stardata():
         View keys:
         star.Nkeys # number of keys
         star.keys # list of keys
-        
+
         '''
-        self.Nkeys = 0
-        self.keys = []
+        if (initialize is None):
+            self.Nkeys = 0
+            self.keys = []
+        elif (isinstance(initialize, list)):
+            Nsd = len(initialize)
+
+            # check if have the same Nkeys and keys
+            Nkeys = np.array([sd.Nkeys for sd in initialize])
+            keys = np.array([set(sd.keys) for sd in initialize])
+
+            if np.all(Nkeys==Nkeys[0]) & np.all(keys==keys[0]):
+                self.Nkeys = 0
+                self.keys = []
+                for sd in initialize:
+                    for key in sd.keys:
+                        self.append(key, sd[key])
+            else:
+                self.Nkeys = 0
+                self.keys = []
+
+        else:
+            self.Nkeys = 0
+            self.keys = []
+
         return
 
     def __getitem__(self, key):
@@ -59,18 +87,33 @@ if __name__ == "__main__":
     # test 1 - construct keys and add values
     t1 = stardata()
     t1.add_key('Teff')
-    t1.add_key('[Fe/H]')
-    t1.append('Teff', np.arange(5100, 5300))
-    t1.append('[M/H]', np.zeros(t1['Teff'].shape) )
+    t1.add_key('feh')
+    t1.append('Teff', np.arange(5100, 5105))
+    t1.append('feh', np.zeros(t1['Teff'].shape) )
     print(t1.Nkeys, t1.keys)
-    
+    print(t1['Teff'])
+    print(t1['feh'])
+
     # test 2 - construct keys without claiming first
     t2 = stardata()
-    t2.append('Teff', np.arange(5100, 5300, dtype=object))
-    t2.append('[M/H]', np.zeros(t1['Teff'].shape) )
+    t2.append('Teff', np.arange(5300, 5305, dtype=object))
+    t2.append('feh', np.zeros(t2['Teff'].shape)+0.1 )
     print(t2.Nkeys, t2.keys)
+    print(t2['Teff'])
+    print(t2['feh'])
 
     # test 3 - construct keys without claiming first
     t3 = stardata()
-    t3['Teff'] = np.arange(0,100)
+    t3['Teff'] = np.arange(5500, 5505)
+    t3.append('feh', np.zeros(t3['Teff'].shape)+0.5 )
     print(t3.Nkeys, t3.keys)
+    print(t3['Teff'])
+    print(t3['feh'])
+
+    # test 4 - intialize a stardata class with existing class
+    t4 = stardata([t1,t2,t3])
+    print(t4.Nkeys, t4.keys)
+    print(t4['Teff'])
+    print(t4['feh'])
+
+
