@@ -656,8 +656,8 @@ class grid:
 
     def output_results(self, model_prob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters, starnames, plot=False, thread_idx=None):
         
-        if (thread_idx is None): thread_idx = np.arange(np.len(self.starnames))
-        starnames = self.starnames[thread_idx]
+        if (thread_idx is None): thread_idx = np.arange(len(self.starname))
+        starnames = self.starname[thread_idx]
         obs_freq = self.obs_freq[thread_idx]
         obs_efreq = self.efreq[thread_idx]
         obs_l = self.obs_l[thread_idx]
