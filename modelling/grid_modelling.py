@@ -182,7 +182,12 @@ class grid:
         self.surface_correction_formula = surface_correction_formula
         
         self.ifSetupSeismology=True
-        self.Nreg = Nreg
+        if Nreg>0:
+            self.ifSetupRegularization=True
+            self.Nreg=Nreg
+        else:
+            self.ifSetupRegularization=False
+
         return self
 
 
@@ -228,7 +233,7 @@ class grid:
 
     def get_chi2_seismology(self, Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
-                ifCorrectSurface=True, mod_efreq_sys=None):
+                ifCorrectSurface=True, mod_efreq_sys=None, mod_efreq_sys_reg=None):
         """
         Calculate chi2.
         ----------
@@ -263,9 +268,10 @@ class grid:
         obs_l_unique = np.unique(obs_l)
         Nl = len(obs_l_unique)
         if (mod_efreq_sys is None) : mod_efreq_sys = [0. for l in range(Nl)]
+        if (mod_efreq_sys_reg is None): mod_efreq_sys_reg = 0.
 
         chi2_seis = [np.array([np.inf]*Nmodel) for l in range(Nl)]
-        chi2_reg = np.array([0.]*Nmodel)
+        chi2_reg = np.array([np.inf]*Nmodel)
         surface_parameters = np.array([np.nan]*Nmodel, dtype=object)
 
         for imod in range(Nmodel):
@@ -341,7 +347,7 @@ class grid:
                 obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 weight_nonseis=1.0, weight_seis=1.0, weight_reg=1.0, 
-                ifCorrectSurface=True, mod_efreq_sys=0.):
+                ifCorrectSurface=True, mod_efreq_sys=None, mod_efreq_sys_reg=None):
         """
         Nonseismic and seismic combined. 
 
@@ -356,9 +362,12 @@ class grid:
         chi2_nonseis = self.get_chi2(obs, e_obs, mod)
         chi2_seis, chi2_reg, surface_parameters = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
-                ifCorrectSurface=ifCorrectSurface, mod_efreq_sys=mod_efreq_sys)
+                ifCorrectSurface=ifCorrectSurface, mod_efreq_sys=mod_efreq_sys, mod_efreq_sys_reg=mod_efreq_sys_reg)
         
-        chi2 = chi2_nonseis * weight_nonseis + np.sum(chi2_seis, axis=0) * weight_seis + chi2_reg * weight_reg
+        if self.ifSetupRegularization:
+            chi2 = chi2_nonseis * weight_nonseis + np.sum(chi2_seis, axis=0) * weight_seis + chi2_reg * weight_reg
+        else:
+            chi2 = chi2_nonseis * weight_nonseis + np.sum(chi2_seis, axis=0) * weight_seis
         return chi2_nonseis, chi2_seis, chi2_reg, chi2, surface_parameters
 
     def find_chi2_unweighted_seis(self, tracks):
@@ -368,6 +377,7 @@ class grid:
         Nls = [len(np.unique(self.obs_l[istar])) for istar in range(Nstar)]
 
         model_chi2_unweighted_seis = [[np.array([]) for il in range(Nls[istar])] for istar in range(Nstar)]
+        model_chi2_unweighted_reg = [np.array([]) for istar in range(Nstar)]
 
         for itrack in range(Ntrack): 
 
@@ -388,14 +398,15 @@ class grid:
                 else: 
                     mod_inertia, mod_acfreq = None, None
 
-                chi2_unweighted_seis, _, _ = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
+                chi2_unweighted_seis, chi2_unweighted_reg, _ = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                     mod_freq, mod_l, mod_inertia, mod_acfreq, ifCorrectSurface=self.ifCorrectSurface)
 
                 # posterior
                 for il in range(Nls[istar]):
                     model_chi2_unweighted_seis[istar][il] = np.append(model_chi2_unweighted_seis[istar][il], chi2_unweighted_seis[il])
+                model_chi2_unweighted_reg[istar] = np.append(model_chi2_unweighted_reg[istar], chi2_unweighted_reg)
 
-        return model_chi2_unweighted_seis
+        return model_chi2_unweighted_seis, model_chi2_unweighted_reg
 
     def assign_prob_to_models(self, tracks):
         
@@ -461,7 +472,7 @@ class grid:
                         obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
                         self.weight_nonseis, self.weight_seis, self.weight_reg,
-                        ifCorrectSurface=self.ifCorrectSurface, mod_efreq_sys=self.mod_efreq_sys[istar])
+                        ifCorrectSurface=self.ifCorrectSurface, mod_efreq_sys=self.mod_efreq_sys[istar], mod_efreq_sys_reg=self.mod_efreq_sys_reg[istar])
                     
                 if (~self.ifSetup) & (self.ifSetupSeismology):
                     # seis
@@ -478,10 +489,13 @@ class grid:
                     chi2_seis, chi2_reg, surface_parameters = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
                         self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
-                        ifCorrectSurface=self.ifCorrectSurface, mod_efreq_sys=self.mod_efreq_sys[istar])
+                        ifCorrectSurface=self.ifCorrectSurface, mod_efreq_sys=self.mod_efreq_sys[istar], mod_efreq_sys_reg=self.mod_efreq_sys_reg[istar])
                     
                     chi2_nonseis = np.zeros(chi2_seis[il].shape)
-                    chi2 = np.sum(chi2_seis, axis=0)*self.weight_seis + chi2_reg*self.weight_reg
+                    if self.ifSetupRegularization:
+                        chi2 = np.sum(chi2_seis, axis=0)*self.weight_seis + chi2_reg*self.weight_reg
+                    else:
+                        chi2 = np.sum(chi2_seis, axis=0)*self.weight_seis
 
                 lnlikelihood = -chi2/2.0 # proportionally speaking
                 lnprior = np.log(prior)
@@ -750,8 +764,12 @@ class grid:
         if Nthread == 1:
             # find the systematic uncertainty in frequency
             if self.ifSetupSeismology:
-                model_chi2_unweighted_seis = self.find_chi2_unweighted_seis(self.tracks)
-                self.mod_efreq_sys = np.array([[np.median(np.percentile(model_chi2_unweighted_seis[istar][il],1))**0.5 for il in range(len(model_chi2_unweighted_seis[istar]))] for istar in range(Nstar)])
+                model_chi2_unweighted_seis, model_chi2_unweighted_reg = self.find_chi2_unweighted_seis(self.tracks)
+                self.mod_efreq_sys = np.array([[np.percentile(model_chi2_unweighted_seis[istar][il],1)**0.5 for il in range(len(model_chi2_unweighted_seis[istar]))] for istar in range(Nstar)])
+                if self.ifSetupRegularization:
+                    self.mod_efreq_sys_reg = np.array([np.percentile(model_chi2_unweighted_reg[istar],1)**0.5 for istar in range(Nstar)])
+                else:
+                    self.mod_efreq_sys_reg = 0.
 
             # assign prob to models
             model_lnprob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters = self.assign_prob_to_models(self.tracks)
@@ -765,8 +783,19 @@ class grid:
                 pool = multiprocessing.Pool(processes=Nthread)
                 result_list = pool.map(self.find_chi2_unweighted_seis, arglist)
                 pool.close()
-                model_chi2_unweighted_seis = [np.concatenate([r[istar] for r in result_list], axis=1) for istar in range(Nstar)]
-                self.mod_efreq_sys = np.array([[np.median(np.percentile(model_chi2_unweighted_seis[istar][il],1))**0.5 for il in range(len(model_chi2_unweighted_seis[istar]))] for istar in range(Nstar)])
+                model_chi2_unweighted_seis = [[np.array([]) for il in range(len(result_list[0][0][istar]))] for istar in range(Nstar)]
+                model_chi2_unweighted_reg = [np.array([]) for istar in range(Nstar)]
+                for ithread in range(Nthread):
+                    for istar in range(Nstar):
+                        Nl = len(result_list[0][0][istar])
+                        for il in range(Nl):
+                            model_chi2_unweighted_seis[istar][il] = np.append(model_chi2_unweighted_seis[istar][il], result_list[ithread][0][istar][il])
+                        model_chi2_unweighted_reg[istar] = np.append(model_chi2_unweighted_reg[istar], result_list[ithread][1][istar])
+                self.mod_efreq_sys = np.array([[np.percentile(model_chi2_unweighted_seis[istar][il],1)**0.5 for il in range(len(model_chi2_unweighted_seis[istar]))] for istar in range(Nstar)])
+                if self.ifSetupRegularization:
+                    self.mod_efreq_sys_reg = np.array([np.percentile(model_chi2_unweighted_reg[istar],1)**0.5 for istar in range(Nstar)])
+                else:
+                    self.mod_efreq_sys_reg = 0.
 
             # assign prob to models
             pool = multiprocessing.Pool(processes=Nthread)
