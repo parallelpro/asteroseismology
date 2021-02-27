@@ -642,8 +642,14 @@ class grid:
         return fig
 
 
-    def output_results(self, model_prob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters, starnames, plot=False):
+    def output_results(self, model_prob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters, starnames, plot=False, thread_idx=None):
         
+        if (thread_idx is None): thread_idx = np.arange(np.len(self.starnames))
+        starnames = self.starnames[thread_idx]
+        obs_freq = self.obs_freq[thread_idx]
+        obs_efreq = self.efreq[thread_idx]
+        obs_l = self.obs_l[thread_idx]
+        Dnu = self.Dnu[thread_idx]
         Nstar = len(starnames)
         Nestimate = self.Nestimate
         # Nseis = 6 if self.ifSetupSeismology else 0
@@ -688,9 +694,10 @@ class grid:
 
                     # plot echelle diagrams
                     if self.ifSetupSeismology:
-                        idx = np.argsort(np.sum(model_chi2_seis[istar], axis=0))[:10]
-                        fig = self.plot_seis_echelles(self.obs_freq[istar], self.obs_efreq[istar], self.obs_l[istar], 
-                                [f[idx] for f in model_parameters[istar][-6:]], np.sum(model_chi2_seis[istar], axis=0)[idx], self.Dnu[istar])
+                        chi2 = np.sum(model_chi2_seis[istar],axis=0)+model_chi2_reg[istar]
+                        idx = np.argsort(chi2, axis=0)[:10]
+                        fig = self.plot_seis_echelles(obs_freq[istar], obs_efreq[istar], obs_l[istar], 
+                                [f[idx] for f in model_parameters[istar][-6:]], chi2[idx], Dnu[istar])
                         fig.savefig(toutdir+"echelle_top10_prob_seismic.png")
                         plt.close()
 
@@ -798,16 +805,17 @@ class grid:
         # output results
         # assign prob to models
         if Nthread==1:
-            self.output_results(model_prob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters, self.starname, plot=plot)
+            self.output_results(model_prob, model_chi2, model_chi2_seis, model_chi2_reg, model_chi2_nonseis, model_parameters, plot=plot)
         else:
             Nstar_per_thread = int(Nstar/Nthread)+1
+            thread_idx = np.arange(ithread*Nstar_per_thread,(ithread+1)*Nstar_per_thread)
             arglist = [(model_prob[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2_seis[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2_reg[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_chi2_nonseis[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
                     model_parameters[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], 
-                    self.starname[ithread*Nstar_per_thread:(ithread+1)*Nstar_per_thread], plot) for ithread in range(Nthread)]
+                    plot, thread_idx) for ithread in range(Nthread)]
 
             pool = multiprocessing.Pool(processes=Nthread)
             pool.starmap(self.output_results, arglist)
