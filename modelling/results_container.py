@@ -75,11 +75,12 @@ class stardata():
             self.Nkeys += 1
         return self
 
-    def append(self, key, value):
+    def append(self, key, value, dtype=None):
         if hasattr(self, key):
             setattr(self, key, np.append(getattr(self,key), value))
         else:
-            self.add_key(key, dtype=type(value[0]))
+            if dtype is None: dtype=type(value[0])
+            self.add_key(key, dtype=dtype)
             setattr(self, key, np.append(getattr(self,key), value))
         return self
 
@@ -116,5 +117,3 @@ if __name__ == "__main__":
     print(t4.Nkeys, t4.keys)
     print(t4['Teff'])
     print(t4['feh'])
-
-
