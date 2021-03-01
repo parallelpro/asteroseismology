@@ -35,12 +35,13 @@ class stardata():
 
             # check if have the same Nkeys and keys
             Nkeys = np.array([sd.Nkeys for sd in initialize])
-            keys = np.array([set(sd.keys) for sd in initialize])
+            # keys = np.array([set(sd.keys) for sd in initialize])
 
-            if np.all(Nkeys==Nkeys[0]) & np.all(keys==keys[0]):
+            if np.all(np.isin(np.unique(Nkeys), [0, np.max(Nkeys)])) :
                 self.Nkeys = 0
                 self.keys = []
                 for sd in initialize:
+                    if sd.Nkeys == 0: continue
                     for key in sd.keys:
                         self.append(key, sd[key])
             else:
