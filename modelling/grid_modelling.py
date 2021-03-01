@@ -71,6 +71,7 @@ class grid:
         if not os.path.exists(outdir): os.mkdir(outdir)
         self.outdir = outdir
         self.starname = starname
+        self.Nstar = len(self.starname)
         self.colAge = colAge
         # self.colLogLum = colLogLum
         # self.colLogTeff = colLogTeff
@@ -98,7 +99,7 @@ class grid:
 
         """
 
-        self.observables = observables
+        self.observables = np.array(observables)
         self.stars_obs = stars_obs
         self.stars_obserr = stars_obserr
         
@@ -169,7 +170,9 @@ class grid:
         self.obs_freq = obs_freq
         self.obs_efreq = obs_efreq
         self.obs_l = obs_l
-        self.Dnu = Dnu 
+        self.obs_l_uniq = np.array([np.unique(l) for l in obs_l], dtype=object)
+        self.obs_Nl = np.array([len(np.unique(l)) for l in obs_l])
+        self.Dnu = Dnu
         self.numax = numax
         self.colModeFreq = colModeFreq
         self.colModeDegree = colModeDegree
