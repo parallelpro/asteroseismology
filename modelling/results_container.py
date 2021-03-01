@@ -73,7 +73,7 @@ class stardata():
             setattr(self, key, np.array([],dtype=dtype))
             self.keys.append(key)
             self.Nkeys += 1
-        return
+        return self
 
     def append(self, key, value):
         if hasattr(self, key):
@@ -81,7 +81,7 @@ class stardata():
         else:
             self.add_key(key, dtype=type(value[0]))
             setattr(self, key, np.append(getattr(self,key), value))
-        return
+        return self
 
 
 if __name__ == "__main__":
