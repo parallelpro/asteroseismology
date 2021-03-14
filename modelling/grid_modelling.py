@@ -17,7 +17,7 @@ from scipy.special import logsumexp
 
 from asteroseismology.tools import return_2dmap_axes, quantile
 from asteroseismology.modelling.surface_correction import get_surface_correction
-from asteroseismology.modelling.model_Dnu import get_model_Dnu
+from asteroseismology.modelling.model_Dnu import get_model_Dnu, get_obs_Dnu
 from asteroseismology.modelling.results_container import stardata
 
 __all__ = ['grid']

@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.optimize import linear_sum_assignment
+from scipy.optimize import linear_sum_assignment, curve_fit
 
-__all__ = ['get_model_Dnu']
+__all__ = ['get_model_Dnu', 'get_obs_Dnu']
 
 
 def get_model_Dnu(mod_freq, mod_l, Dnu, numax, 
@@ -87,3 +87,48 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
         mod_Dnu = p[0]      
 
     return mod_Dnu
+
+
+def get_obs_Dnu(obs_freq, obs_efreq=None, Dnu_guess=None):
+    
+    """
+    Calculate observed Dnu from l=0 radial modes.
+
+    ----------
+    Input:
+    obs_freq: array_like[Nmode_obs]
+        radial mode frequency
+
+    ----------
+    Optional input:
+    obs_efreq: array_like[Nmode_obs]
+        mode frequency uncertainty
+
+    Dnu_guess: float
+        An initial guess for the Dnu
+
+    ----------
+    Return:
+    obs_Dnu: float
+
+    """
+    if obs_efreq is None: obs_efreq = np.ones(len(obs_freq))
+    if Dnu_guess is None: Dnu_guess = np.median(np.diff(np.sort(obs_freq)))
+
+    Nmodes = len(obs_freq)
+    
+    mode_n = np.arange(Nmodes) + np.floor(obs_freq[0]/Dnu_guess)
+    for im in range(len(mode_n)-1):
+        add = np.round((obs_freq[im+1]-obs_freq[im])/Dnu_guess)-1
+        mode_n[(im+1):] = mode_n[(im+1):] + add 
+
+    # ## 1 - all modes without curvature
+    def func1(xdata, Dnu, epsp):
+        return (xdata + epsp )*Dnu
+    print(obs_freq, obs_efreq,mode_n)
+    popt, pcov = curve_fit(func1, mode_n, obs_freq, sigma=obs_efreq)
+    perr = np.diag(pcov)**0.5
+
+    obs_Dnu, obs_eDnu = popt[0], perr[0]
+
+    return obs_Dnu, obs_eDnu
