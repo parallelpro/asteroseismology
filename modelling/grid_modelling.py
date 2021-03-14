@@ -453,6 +453,7 @@ class grid:
                     obs, e_obs = self.stars_obs[istar], self.stars_obserr[istar]
                     mod = np.array([atrack[i][1:-1] for i in self.observables]).T.reshape(Nmodel,-1)#np.array(atrack[self.observables][1:-1]).view(np.float64).reshape(Nmodel + (-1,))
 
+                    chi2_nonseis = self.get_chi2(obs, e_obs, mod)
                     chi2 = np.array(chi2_nonseis)
 
                 if (self.ifSetup) & (self.ifSetupSeismology):
