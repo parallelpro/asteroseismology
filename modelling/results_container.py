@@ -41,7 +41,8 @@ class stardata():
                 self.Nkeys = 0
                 self.keys = []
                 for sd in initialize:
-                    if sd.Nkeys == 0: continue
+                    Nsizes = np.array([len(sd[key]) for key in sd.keys])
+                    if (sd.Nkeys == 0) & (np.all(Nsizes>0)): continue
                     for key in sd.keys:
                         self.append(key, sd[key])
             else:
