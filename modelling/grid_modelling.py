@@ -829,6 +829,10 @@ class grid:
         if Nthread == 1:
             starsdata = self.assign_prob_to_models(self.tracks)
         else:
+            # multithreading
+            Ntrack_per_thread = int(Ntrack/Nthread)+1
+            arglist = [self.tracks[ithread*Ntrack_per_thread:(ithread+1)*Ntrack_per_thread] for ithread in range(Nthread)]
+
             pool = multiprocessing.Pool(processes=Nthread)
             result_list = pool.map(self.assign_prob_to_models, arglist)
             pool.close()
