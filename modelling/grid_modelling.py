@@ -671,11 +671,12 @@ class grid:
         
         if (thread_idx is None): thread_idx = slice(0,len(self.starname))
         starnames = self.starname[thread_idx]
-        obs_freq = self.obs_freq[thread_idx]
-        obs_efreq = self.obs_efreq[thread_idx]
-        obs_l = self.obs_l[thread_idx]
-        Dnu = self.Dnu[thread_idx]
-        obs_l_uniq = self.obs_l_uniq[thread_idx]
+        if (self.ifSetupSeismology):
+            obs_freq = self.obs_freq[thread_idx]
+            obs_efreq = self.obs_efreq[thread_idx]
+            obs_l = self.obs_l[thread_idx]
+            Dnu = self.Dnu[thread_idx]
+            obs_l_uniq = self.obs_l_uniq[thread_idx]
         Nstar = len(starnames)
 
 
