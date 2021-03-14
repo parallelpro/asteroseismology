@@ -527,8 +527,8 @@ class grid:
                     for il, l in enumerate(self.obs_l_uniq[istar]):
                         starsdata[istar].append('chi2_seis_l{:0.0f}'.format(l), chi2_seis[il][fidx], dtype=float)
                 
-                if self.ifSetupRegularization:
-                    starsdata[istar].append('chi2_reg', chi2_reg[fidx], dtype=float)
+                    if self.ifSetupRegularization:
+                        starsdata[istar].append('chi2_reg', chi2_reg[fidx], dtype=float)
 
                 starsdata[istar].append('chi2', chi2[fidx], dtype=float)
                 starsdata[istar].append('lnprior', lnprior[fidx], dtype=float)
