@@ -111,7 +111,7 @@ class grid:
             colModeFreq='mode_freq', colModeDegree='mode_l', colModeInertia='mode_inertia',
             colAcFreq='acoustic_cutoff', colModeNode='mode_n', 
             weight_nonseis=1, weight_seis=1, weight_reg=1, ifCorrectSurface=True,
-            surface_correction_formula='cubic', Nreg=0):
+            surface_correction_formula='cubic', Nreg=0, rescale_percentile=10):
         """
         Setup the matching of oscillation frequencies (to construct the chi2_seismo)
         In order to setup, you should make sure that 'atrack[colModeFreq]' returns a list  
@@ -165,6 +165,20 @@ class grid:
         Nreg: int, default 0
             the number of low-frequency modes that do not apply surface effects.
 
+        rescale_percentile: float, default 10, between 0 to 100
+            In most cases, the frequencies of stellar models still can't match with 
+            observations within the uncertainties. So we need to rescale the seismic
+            chi2 (chi2_reg, chi2_seis) in order to avoid an extremely sharp posterior
+            distribution. The variable ``rescale_percentile'' specifies the fraction of
+            seismic models that will be thought as a reasonable agreement between models
+            and observations (i.e. the difference will be treated as a systematic 
+            uncertainty in models) in all seismic models. 
+
+            In python language:
+            seismic_chi2_unweighted[imod] = np.sum((obs_freq-mod_freq[imod])**2.0/(obs_efreq**2.0))
+            mod_efreq = np.percentile(seismic_chi2_unweighted, rescale_percentile)**0.5
+            seismic_chi2_weighted[imod] = np.sum((obs_freq-mod_freq[imod])**2.0/(obs_efreq**2.0+mod_efreq**2.0))
+
         """
 
         self.obs_freq = obs_freq
@@ -184,6 +198,7 @@ class grid:
         self.weight_reg = weight_reg
         self.ifCorrectSurface = ifCorrectSurface
         self.surface_correction_formula = surface_correction_formula
+        self.rescale_percentile = rescale_percentile
         
         self.ifSetupSeismology=True
         if Nreg>0:
@@ -786,7 +801,7 @@ class grid:
                 for il, l in enumerate(self.obs_l_uniq[istar]):
                     idx = np.isfinite(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)])
                     if np.sum(idx) > 0:
-                        sig = np.percentile(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)][idx],1)**0.5
+                        sig = np.percentile(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)][idx],self.rescale_percentile)**0.5
                     else:
                         sig = 0.
                     mod_efreq_sys_istar[il] = sig
@@ -797,7 +812,7 @@ class grid:
                 for istar in range(Nstar):
                     idx = np.isfinite(starsdata[istar]['chi2_unweighted_reg'])
                     if np.sum(idx) > 0:
-                        sig = np.percentile(starsdata[istar]['chi2_unweighted_reg'][idx],1)**0.5
+                        sig = np.percentile(starsdata[istar]['chi2_unweighted_reg'][idx],self.rescale_percentile)**0.5
                     else:
                         sig = 0.
                     mod_efreq_sys_reg[istar] = sig
