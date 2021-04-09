@@ -6,10 +6,42 @@ import numpy as np
 from astropy.timeseries import LombScargle
 from .functions import gaussian
 
-__all__ = ["a_correlate", "c_correlate", 
+__all__ = ["get_binned_median", "a_correlate", "c_correlate", 
         "smoothWrapper", "powerSpectrumSmoothWrapper",
         "medianSmooth", "medianFilter", "psd", "arg_closest_node",
         "quantile"]
+
+def get_binned_median(xdata, ydata, bins):
+    '''
+    return median vals and the standand deviation of the mean for given data and a bin.
+
+    Input:
+        xdata: array-like[N,]
+        ydata: array-like[N,]
+        bins: array-like[Nbin,]
+
+    Output:
+        xcs: array-like[Nbin,]
+            center of each bin
+        medians: array-like[Nbin,]
+            median values of ydata in each bin
+        stds: array-like[Nbin,]
+            stds of the mean of ydata in each bin
+
+    '''
+    
+    Nbin = len(bins)-1
+    medians, stds = [np.zeros(Nbin) for i in range(2)]
+    for ibin in range(Nbin):
+        idx = (xdata>bins[ibin]) & (xdata<=bins[ibin+1]) & (np.isfinite(xdata)) & (np.isfinite(ydata))
+        if np.sum(idx)==0:
+            medians[ibin], stds[ibin] = np.nan, np.nan
+        else:
+            medians[ibin] = np.median(ydata[idx])
+            stds[ibin] = np.std(ydata[idx])/np.sqrt(np.sum(idx))
+    xcs = (bins[1:]+bins[:-1])/2.
+    return xcs, medians, stds
+
 
 def a_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
 
