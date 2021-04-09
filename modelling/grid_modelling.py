@@ -721,12 +721,12 @@ class grid:
 
             prob = np.exp(-starsdata[istar]['chi2']/2.)
             if (self.ifSetup):
-                prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis'])/2.)
+                prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis']*self.weight_nonseis)/2.)
             if (self.ifSetupSeismology):
                 if (self.ifSetupRegularization):
-                    chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0) + starsdata[istar]['chi2_reg']
+                    chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)*self.weight_seis + starsdata[istar]['chi2_reg']*self.weight_reg
                 else:
-                    chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)
+                    chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)*self.weight_seis
                 prob_seis = np.exp(-(chi2_seis)/2.)
             if plot:
                 if samples.shape[0] <= samples.shape[1]:
@@ -759,14 +759,20 @@ class grid:
                     # plot echelle diagrams
                     if self.ifSetupSeismology:
                         idx = np.argsort(chi2_seis, axis=0)[:10]
-                        model_parameters = [starsdata[istar][self.colModeFreq][idx], 
-                                            starsdata[istar][self.colModeDegree][idx], 
-                                            starsdata[istar][self.colModeInertia][idx], 
-                                            starsdata[istar][self.colAcFreq][idx], 
-                                            starsdata[istar][self.colModeNode][idx], 
-                                            starsdata[istar]['surface_parameters'][idx]]
+                        if self.ifCorrectSurface:
+                            model_parameters = {'mode_freq': starsdata[istar][self.colModeFreq][idx], 
+                                                'mode_l': starsdata[istar][self.colModeDegree][idx], 
+                                                'mode_inertia': starsdata[istar][self.colModeInertia][idx], 
+                                                'acoustic_cutoff': starsdata[istar][self.colAcFreq][idx], 
+                                                'mode_n': starsdata[istar][self.colModeNode][idx]}
+                        else:
+                            model_parameters = {'mode_freq': starsdata[istar][self.colModeFreq][idx], 
+                                                'mode_l': starsdata[istar][self.colModeDegree][idx], 
+                                                'mode_n': starsdata[istar][self.colModeNode][idx]}
                         fig = self.plot_seis_echelles(obs_freq[istar], obs_efreq[istar], obs_l[istar], 
-                                model_parameters, chi2_seis[idx], Dnu[istar])
+                                model_parameters, chi2_seis[idx], Dnu[istar], 
+                                ifCorrectSurface=self.ifCorrectSurface, 
+                                surface_correction_formula=self.surface_correction_formula)
                         fig.savefig(toutdir+"echelle_top10_prob_seismic.png")
                         plt.close()
 
