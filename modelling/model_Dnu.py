@@ -125,7 +125,7 @@ def get_obs_Dnu(obs_freq, obs_efreq=None, Dnu_guess=None):
     # ## 1 - all modes without curvature
     def func1(xdata, Dnu, epsp):
         return (xdata + epsp )*Dnu
-    print(obs_freq, obs_efreq,mode_n)
+    # print(obs_freq, obs_efreq,mode_n)
     popt, pcov = curve_fit(func1, mode_n, obs_freq, sigma=obs_efreq)
     perr = np.diag(pcov)**0.5
 
