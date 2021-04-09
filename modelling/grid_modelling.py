@@ -199,6 +199,11 @@ class grid:
         self.ifCorrectSurface = ifCorrectSurface
         self.surface_correction_formula = surface_correction_formula
         self.rescale_percentile = rescale_percentile
+
+        if self.rescale_percentile==0.:
+            self.ifRescale = False
+        else:
+            self.ifRescale = True
         
         self.ifSetupSeismology=True
         if Nreg>0:
@@ -781,7 +786,7 @@ class grid:
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
 
         # # step 1, find the systematic uncertainty in seismology models
-        if self.ifSetupSeismology:
+        if (self.ifSetupSeismology) & (self.ifRescale):
             if Nthread == 1:
                 starsdata = self.find_chi2_unweighted_seis(self.tracks)
             else:
@@ -822,6 +827,10 @@ class grid:
             
             self.mod_efreq_sys = mod_efreq_sys
             self.mod_efreq_sys_reg = mod_efreq_sys_reg
+        
+        if (self.ifSetupSeismology) & (~ self.ifRescale):
+            self.mod_efreq_sys = [[0. for i in range(len(self.obs_l_uniq[istar]))] for istar in range(Nstar)]
+            self.mod_efreq_sys_reg = [0. for i in range(Nstar)]
 
         # print(self.mod_efreq_sys)
         # print(self.mod_efreq_sys_reg)
