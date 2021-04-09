@@ -304,38 +304,54 @@ class grid:
             else:
                 mod_freq_imod, mod_l_imod = np.array(mod_freq[imod]), np.array(mod_l[imod])
         
-            corr_mod_freq_imod = None
-            if ifCorrectSurface & (np.sum(np.isin(mod_l_imod, 0))) :
-                mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
-                if -0.02 < ((mod_Dnu-Dnu)/Dnu) < 0.15:
-                    if Nmodel == 1:
-                        mod_inertia_imod, mod_acfreq_imod = mod_inertia, mod_acfreq
-                    else:
-                        mod_inertia_imod, mod_acfreq_imod = mod_inertia[imod], mod_acfreq[imod]
+            if ifCorrectSurface:
+                corr_mod_freq_imod = None
+                if (np.sum(np.isin(mod_l_imod, 0))) :
+                    mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
+                    if -0.10 < ((mod_Dnu-Dnu)/Dnu) < 0.20:
+                        if Nmodel == 1:
+                            mod_inertia_imod, mod_acfreq_imod = mod_inertia, mod_acfreq
+                        else:
+                            mod_inertia_imod, mod_acfreq_imod = mod_inertia[imod], mod_acfreq[imod]
 
-                    corr_mod_freq_imod, surface_parameters_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, 
-                                                                        mod_inertia_imod, mod_acfreq_imod, 
-                                                                        formula=self.surface_correction_formula,
-                                                                        ifFullOutput=True)
+                        corr_mod_freq_imod, surface_parameters_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, 
+                                                                            mod_inertia_imod, mod_acfreq_imod, 
+                                                                            formula=self.surface_correction_formula,
+                                                                            ifFullOutput=True)
 
 
-            if (corr_mod_freq_imod is None):
-                for il, l in enumerate(obs_l_unique):
-                    chi2_seis[il][imod] = np.inf
+                if (corr_mod_freq_imod is None):
+                    for il, l in enumerate(obs_l_unique):
+                        chi2_seis[il][imod] = np.inf
+                else:
+                    for il, l in enumerate(obs_l_unique):
+                        oidx, midx = obs_l==l, mod_l_imod==l
+                        if (l==0) & (self.ifSetupRegularization):
+                            obs_freq_imod_il, obs_efreq_imod_il, _, corr_mod_freq_imod_il, _, mod_freq_imod_il = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], corr_mod_freq_imod[midx], mod_l_imod[midx], mod_freq_imod[midx])
+                            idx = np.argsort(obs_freq_imod_il)[:self.Nreg]
+                            ridx = ~np.isin(np.arange(len(obs_freq_imod_il)), idx)
+                            chi2_reg[imod] = np.sum((obs_freq_imod_il[idx]-mod_freq_imod_il[idx])**2.0/(obs_efreq_imod_il[idx]**2.0+mod_efreq_sys_reg**2.0))#/(self.Nreg-1)
+                            chi2_seis[il][imod] = np.sum((obs_freq_imod_il[ridx]-corr_mod_freq_imod_il[ridx])**2.0/(obs_efreq_imod_il[ridx]**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable
+                        else:
+                            obs_freq_imod_il, obs_efreq_imod_il, _, corr_mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], corr_mod_freq_imod[midx], mod_l_imod[midx])
+                            chi2_seis[il][imod] = np.sum((obs_freq_imod_il-corr_mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
+
+                    surface_parameters[imod] = surface_parameters_imod
+            
             else:
-                for il, l in enumerate(obs_l_unique):
-                    oidx, midx = obs_l==l, mod_l_imod==l
-                    if (l==0) & (self.ifSetupRegularization):
-                        obs_freq_imod_il, obs_efreq_imod_il, _, corr_mod_freq_imod_il, _, mod_freq_imod_il = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], corr_mod_freq_imod[midx], mod_l_imod[midx], mod_freq_imod[midx])
-                        idx = np.argsort(obs_freq_imod_il)[:self.Nreg]
-                        ridx = ~np.isin(np.arange(len(obs_freq_imod_il)), idx)
-                        chi2_reg[imod] = np.sum((obs_freq_imod_il[idx]-mod_freq_imod_il[idx])**2.0/(obs_efreq_imod_il[idx]**2.0+mod_efreq_sys_reg**2.0))#/(self.Nreg-1)
-                        chi2_seis[il][imod] = np.sum((obs_freq_imod_il[ridx]-corr_mod_freq_imod_il[ridx])**2.0/(obs_efreq_imod_il[ridx]**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable
-                    else:
-                        obs_freq_imod_il, obs_efreq_imod_il, _, corr_mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], corr_mod_freq_imod[midx], mod_l_imod[midx])
-                        chi2_seis[il][imod] = np.sum((obs_freq_imod_il-corr_mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
-
-                surface_parameters[imod] = surface_parameters_imod
+                mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
+                if -0.15 < ((mod_Dnu-Dnu)/Dnu) < 0.15:
+                    for il, l in enumerate(obs_l_unique):
+                        oidx, midx = obs_l==l, mod_l_imod==l
+                        if (l==0) & (self.ifSetupRegularization):
+                            obs_freq_imod_il, obs_efreq_imod_il, _, mod_freq_imod_il, _,  = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], mod_freq_imod[midx], mod_l_imod[midx])
+                            idx = np.argsort(obs_freq_imod_il)[:self.Nreg]
+                            ridx = ~np.isin(np.arange(len(obs_freq_imod_il)), idx)
+                            chi2_reg[imod] = np.sum((obs_freq_imod_il[idx]-mod_freq_imod_il[idx])**2.0/(obs_efreq_imod_il[idx]**2.0+mod_efreq_sys_reg**2.0))#/(self.Nreg-1)
+                            chi2_seis[il][imod] = np.sum((obs_freq_imod_il[ridx]-mod_freq_imod_il[ridx])**2.0/(obs_efreq_imod_il[ridx]**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable
+                        else:
+                            obs_freq_imod_il, obs_efreq_imod_il, _, mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], mod_freq_imod[midx], mod_l_imod[midx])
+                            chi2_seis[il][imod] = np.sum((obs_freq_imod_il-mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
 
         return chi2_seis, chi2_reg, surface_parameters
 
@@ -606,10 +622,14 @@ class grid:
         return fig 
 
 
-    def plot_seis_echelles(self, obs_freq, obs_efreq, obs_l, model_parameters, model_chi2, Dnu):
+    def plot_seis_echelles(self, obs_freq, obs_efreq, obs_l, model_parameters, model_chi2, Dnu, 
+                            ifCorrectSurface=True, surface_correction_formula='cubic'):
         
-        fig, axes = plt.subplots(figsize=(12,5), nrows=1, ncols=2, squeeze=False)
-        axes = axes.reshape(-1) # 0: uncorrected, 1: corrected
+        if ifCorrectSurface:
+            fig, axes = plt.subplots(figsize=(12,5), nrows=1, ncols=2, squeeze=False)
+        else:
+            fig, axes = plt.subplots(figsize=(6,5), nrows=1, ncols=1, squeeze=False)
+        # axes = axes.reshape(-1) # 0: uncorrected, 1: corrected
 
         markers = ['o', '^', 's', 'v']
         colors = ['blue', 'red', 'green', 'orange']     
@@ -617,33 +637,35 @@ class grid:
         # plot observation frequencies
         for l in range(4):
             styles = {'marker':markers[l], 'color':colors[l], 'zorder':1}
-            axes[0].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
-            axes[0].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
-            axes[1].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
-            axes[1].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
+            axes[0,0].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
+            axes[0,0].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
+            if ifCorrectSurface:
+                axes[0,1].scatter(obs_freq[obs_l==l] % Dnu, obs_freq[obs_l==l], **styles)
+                axes[0,1].scatter(obs_freq[obs_l==l] % Dnu + Dnu, obs_freq[obs_l==l], **styles)
 
         norm = matplotlib.colors.Normalize(vmin=np.min(model_chi2), vmax=np.max(model_chi2))
         cmap = plt.cm.get_cmap('gray')
         for imod in np.argsort(model_chi2)[::-1]:
-            mod_freq, mod_l, mod_inertia, mod_acfreq, mod_n, surface_parameters = [model_parameters[i][imod] for i in range(len(model_parameters))]
-            mod_freq_uncor, mod_l_uncor = np.array(mod_freq), np.array(mod_l)
-            if self.ifCorrectSurface:
-                mod_freq_cor = get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_acfreq, formula=self.surface_correction_formula)
-                # if (mod_freq_cor is None): return fig
-            else:
-                mod_freq_cor = np.array(mod_freq)
-            mod_freq_cor, mod_l_cor = np.array(mod_freq_cor), np.array(mod_l)
+            mod_freq_uncor, mod_l_uncor, mod_n = model_parameters['mode_freq'][imod], model_parameters['mode_l'][imod], model_parameters['mode_n'][imod]
+            if ifCorrectSurface:
+                mod_inertia, mod_acfreq = model_parameters['mode_inertia'][imod], model_parameters['acoustic_cutoff'][imod]
+                if ifCorrectSurface:
+                    mod_freq_cor = get_surface_correction(obs_freq, obs_l, np.array(mod_freq_uncor), np.array(mod_l_uncor), mod_inertia, mod_acfreq, formula=surface_correction_formula)
+                    # if (mod_freq_cor is None): return fig
+                else:
+                    mod_freq_cor = np.array(mod_freq_uncor)
+                mod_freq_cor, mod_l_cor = np.array(mod_freq_cor), np.array(mod_l_uncor)
 
             for l in np.array(np.unique(obs_l), dtype=int):
                 # axes[0] plot uncorrected frequencies
                 z = np.zeros(np.sum(mod_l_uncor==l))+model_chi2[imod]
                 scatterstyles = {'marker':markers[l], 'edgecolors':cmap(norm(z)), 'c':'None', 'zorder':2}
-                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
-                axes[0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
-
-                # axes[1] plot surface corrected frequencies
-                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
-                axes[1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
+                axes[0,0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
+                axes[0,0].scatter(mod_freq_uncor[mod_l_uncor==l] % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==l], **scatterstyles)
+                if ifCorrectSurface:
+                    # axes[1] plot surface corrected frequencies
+                    axes[0,1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
+                    axes[0,1].scatter(mod_freq_cor[mod_l_cor==l] % Dnu + Dnu, mod_freq_cor[mod_l_cor==l], **scatterstyles)
 
             # label the radial orders n for l=0 modes
             if (imod == np.argsort(model_chi2)[0]) & np.sum(mod_l_uncor==0):
@@ -651,23 +673,24 @@ class grid:
                     nstr = '{:0.0f}'.format(n)
                     # axes[0] plot uncorrected frequencies
                     textstyles = {'fontsize':12, 'ha':'center', 'va':'center', 'zorder':100, 'color':'purple'}
-                    axes[0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
-                    axes[0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
-
-                    # axes[1] plot surface corrected frequencies
-                    axes[1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
-                    axes[1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                    axes[0,0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                    axes[0,0].text((mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_uncor[mod_l_uncor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                    if ifCorrectSurface:
+                        # axes[1] plot surface corrected frequencies
+                        axes[0,1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
+                        axes[0,1].text((mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu) % Dnu + Dnu, mod_freq_cor[mod_l_cor==0][idxn]+0.05*Dnu, nstr, **textstyles)
 
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.02, 0.7])
         fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap='gray'),cax=cbar_ax).set_label('chi2_seismic')
 
-        for iax in range(len(axes)):
-            axes[iax].axis([0., Dnu*2, np.min(obs_freq)-Dnu*4, np.max(obs_freq)+Dnu*4])
-            axes[iax].set_ylabel('Frequency')
-            axes[iax].set_xlabel('Frequency mod Dnu {:0.3f}'.format(Dnu))
-        axes[0].set_title('Before correction')
-        axes[1].set_title('After correction')
+        for ax in axes.reshape(-1):
+            ax.axis([0., Dnu*2, np.min(obs_freq)-Dnu*4, np.max(obs_freq)+Dnu*4])
+            ax.set_ylabel('Frequency')
+            ax.set_xlabel('Frequency mod Dnu {:0.3f}'.format(Dnu))
+        axes[0,0].set_title('Before correction')
+        if ifCorrectSurface:
+            axes[0,1].set_title('After correction')
 
         return fig
 
