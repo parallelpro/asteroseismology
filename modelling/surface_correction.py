@@ -25,8 +25,8 @@ def get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_ac
                             formula='cubic', ifFullOutput=False):
     
     # formula is one of 'cubic', 'BG14'
-    if not (formula in ['cubic', 'cubic_inverse', 'kjeldsen']):
-        raise ValueError('formula must be one of ``cubic``, ``cubic_inverse`` and ``kjeldsen''. ')
+    if not (formula in ['cubic', 'combined', 'kjeldsen']):
+        raise ValueError('formula must be one of ``cubic``, ``combined`` and ``kjeldsen''. ')
 
     new_mod_freq = np.array(mod_freq) 
 
@@ -52,7 +52,7 @@ def get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_ac
         # if (np.abs(np.median(np.diff(np.sort(obs_freq_l0)))) > np.abs(np.median(np.diff(np.sort(mod_freq_l0)))) ) :
         #     return None
 
-        if formula == 'cubic_inverse':
+        if formula == 'combined':
             A1 = (new_mod_freq_l0/mod_acfreq)**-1. / mod_inertia_l0
             A2 = (new_mod_freq_l0/mod_acfreq)**3. / mod_inertia_l0
             AT = np.array([A1, A2])
@@ -66,7 +66,7 @@ def get_surface_correction(obs_freq, obs_l, mod_freq, mod_l, mod_inertia, mod_ac
                 new_mod_freq += delta_freq
             except:
                 coeff = np.zeros(2)
-                print('An exception occurred when correcting surface effect using cubic_inverse form.')
+                print('An exception occurred when correcting surface effect using combined form.')
                 # pass
 
         if formula == 'cubic':
