@@ -815,51 +815,52 @@ class grid:
         Ntrack, Nestimate, Nstar = len(self.tracks), len(self.estimates), len(self.starname)
 
         # # step 1, find the systematic uncertainty in seismology models
-        if (self.ifSetupSeismology) & (self.ifRescale):
-            if Nthread == 1:
-                starsdata = self.find_chi2_unweighted_seis(self.tracks)
-            else:
-                # multithreading
-                Ntrack_per_thread = int(Ntrack/Nthread)+1
-                arglist = [self.tracks[ithread*Ntrack_per_thread:(ithread+1)*Ntrack_per_thread] for ithread in range(Nthread)]
+        if (self.ifSetupSeismology):
+            if (self.ifRescale):
+                if Nthread == 1:
+                    starsdata = self.find_chi2_unweighted_seis(self.tracks)
+                else:
+                    # multithreading
+                    Ntrack_per_thread = int(Ntrack/Nthread)+1
+                    arglist = [self.tracks[ithread*Ntrack_per_thread:(ithread+1)*Ntrack_per_thread] for ithread in range(Nthread)]
 
-                pool = multiprocessing.Pool(processes=Nthread)
-                result_list = pool.map(self.find_chi2_unweighted_seis, arglist)
-                pool.close()
+                    pool = multiprocessing.Pool(processes=Nthread)
+                    result_list = pool.map(self.find_chi2_unweighted_seis, arglist)
+                    pool.close()
 
-                starsdata = [0. for i in range(Nstar)]
+                    starsdata = [0. for i in range(Nstar)]
+                    for istar in range(Nstar):
+                        starsdata[istar] = stardata([result_list[ithread][istar] for ithread in range(Nthread)])
+
+                mod_efreq_sys = [0. for i in range(Nstar)]
                 for istar in range(Nstar):
-                    starsdata[istar] = stardata([result_list[ithread][istar] for ithread in range(Nthread)])
-
-            mod_efreq_sys = [0. for i in range(Nstar)]
-            for istar in range(Nstar):
-                mod_efreq_sys_istar = [0. for i in range(len(self.obs_l_uniq[istar]))]
-                for il, l in enumerate(self.obs_l_uniq[istar]):
-                    idx = np.isfinite(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)])
-                    if np.sum(idx) > 0:
-                        sig = np.percentile(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)][idx],self.rescale_percentile)**0.5
-                    else:
-                        sig = 0.
-                    mod_efreq_sys_istar[il] = sig
-                mod_efreq_sys[istar] = mod_efreq_sys_istar
-            
-            mod_efreq_sys_reg = [0. for i in range(Nstar)]
-            if self.ifSetupRegularization:
-                for istar in range(Nstar):
-                    idx = np.isfinite(starsdata[istar]['chi2_unweighted_reg'])
-                    if np.sum(idx) > 0:
-                        sig = np.percentile(starsdata[istar]['chi2_unweighted_reg'][idx],self.rescale_percentile)**0.5
-                    else:
-                        sig = 0.
-                    mod_efreq_sys_reg[istar] = sig
+                    mod_efreq_sys_istar = [0. for i in range(len(self.obs_l_uniq[istar]))]
+                    for il, l in enumerate(self.obs_l_uniq[istar]):
+                        idx = np.isfinite(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)])
+                        if np.sum(idx) > 0:
+                            sig = np.percentile(starsdata[istar]['chi2_unweighted_seis_l{:0.0f}'.format(l)][idx],self.rescale_percentile)**0.5
+                        else:
+                            sig = 0.
+                        mod_efreq_sys_istar[il] = sig
+                    mod_efreq_sys[istar] = mod_efreq_sys_istar
                 
-            
-            self.mod_efreq_sys = mod_efreq_sys
-            self.mod_efreq_sys_reg = mod_efreq_sys_reg
+                mod_efreq_sys_reg = [0. for i in range(Nstar)]
+                if self.ifSetupRegularization:
+                    for istar in range(Nstar):
+                        idx = np.isfinite(starsdata[istar]['chi2_unweighted_reg'])
+                        if np.sum(idx) > 0:
+                            sig = np.percentile(starsdata[istar]['chi2_unweighted_reg'][idx],self.rescale_percentile)**0.5
+                        else:
+                            sig = 0.
+                        mod_efreq_sys_reg[istar] = sig
+                    
+                
+                self.mod_efreq_sys = mod_efreq_sys
+                self.mod_efreq_sys_reg = mod_efreq_sys_reg
         
-        if (self.ifSetupSeismology) & (~ self.ifRescale):
-            self.mod_efreq_sys = [[0. for i in range(len(self.obs_l_uniq[istar]))] for istar in range(Nstar)]
-            self.mod_efreq_sys_reg = [0. for i in range(Nstar)]
+            else: 
+                self.mod_efreq_sys = [[0. for i in range(len(self.obs_l_uniq[istar]))] for istar in range(Nstar)]
+                self.mod_efreq_sys_reg = [0. for i in range(Nstar)]
 
         # print(self.mod_efreq_sys)
         # print(self.mod_efreq_sys_reg)
