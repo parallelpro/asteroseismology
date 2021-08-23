@@ -308,7 +308,7 @@ class grid:
                 corr_mod_freq_imod = None
                 if (np.sum(np.isin(mod_l_imod, 0))) :
                     mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
-                    if -0.10 < ((mod_Dnu-Dnu)/Dnu) < 0.20:
+                    if -0.15 < ((mod_Dnu-Dnu)/Dnu) < 0.20:
                         if Nmodel == 1:
                             mod_inertia_imod, mod_acfreq_imod = mod_inertia, mod_acfreq
                         else:
