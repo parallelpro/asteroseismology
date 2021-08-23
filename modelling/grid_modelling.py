@@ -721,7 +721,10 @@ class grid:
 
             prob = np.exp(-starsdata[istar]['chi2']/2.)
             if (self.ifSetup):
-                prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis']*self.weight_nonseis)/2.)
+                if (self.ifSetupSeismology):
+                    prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis']*self.weight_nonseis)/2.)
+                else:
+                    prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis'])/2.)
             if (self.ifSetupSeismology):
                 if (self.ifSetupRegularization):
                     chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)*self.weight_seis + starsdata[istar]['chi2_reg']*self.weight_reg
