@@ -58,7 +58,7 @@ def get_model_Dnu(mod_freq, mod_l, Dnu, numax,
         # sigma = 1/np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
         weight = np.exp(-(mod_freq_l0-numax)**2./(2*width**2.))
         idx = weight>1e-100
-        if np.sum(idx)>6:
+        if np.sum(idx)>2:
             p = np.polyfit(mod_n[idx], mod_freq_l0[idx], 1, w=weight[idx])
             mod_Dnu = p[0]
         else:
