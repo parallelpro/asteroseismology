@@ -571,8 +571,11 @@ class grid:
     def plot_parameter_distributions(self, samples, estimates, probs):
         # corner plot, overplotted with observation constraints
         
-        # Ndim = samples.shape[1]
-        fig = corner.corner(samples, labels=estimates, quantiles=(0.16, 0.5, 0.84), weights=probs)
+        Ndim = samples.shape[1]
+        ranges = [[np.nanmin(samples[:,idim]), np.nanmax(samples[:,idim])] for idim in range(Ndim)]
+        for ir, r in enumerate(ranges):
+            if r[0]==r[1]: ranges[ir] = [r[0]-1, r[1]+1]
+        fig = corner.corner(samples, range=ranges, labels=estimates, quantiles=(0.16, 0.5, 0.84), weights=probs)
 
         # if (not (estimates is None)) & (not (observables is None)) & (not (obs is None)) & (not (e_obs is None)):
         #     axes = np.array(fig.axes).reshape(Ndim, Ndim)
