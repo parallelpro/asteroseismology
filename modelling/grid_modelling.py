@@ -719,7 +719,7 @@ class grid:
         return fig
 
 
-    def output_results(self, starsdata, plot=False, thread_idx=None):
+    def output_results(self, starsdata, plot=True, thread_idx=None):
         
         if (thread_idx is None): thread_idx = slice(0,len(self.starname))
         starnames = self.starname[thread_idx]
