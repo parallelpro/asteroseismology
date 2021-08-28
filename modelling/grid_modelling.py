@@ -581,6 +581,8 @@ class grid:
         # corner plot, overplotted with observation constraints
         
         Ndim = samples.shape[1]
+        idx = np.any(np.isfinite(samples), axis=0)
+        samples, estimates = samples[:,idx], estimates[idx]
         ranges = [[np.nanmin(samples[:,idim]), np.nanmax(samples[:,idim])] for idim in range(Ndim)]
         for ir, r in enumerate(ranges):
             if r[0]==r[1]: ranges[ir] = [r[0]-1, r[1]+1]
