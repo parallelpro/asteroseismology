@@ -755,17 +755,30 @@ class grid:
             
 
             prob = np.exp(-starsdata[istar]['chi2']/2.)
+            best_models_ranked_by = ['chi2']
+            best_models_imod = [np.nanargmax(prob)]
+            best_models_chi2s = [starsdata[istar]['chi2']]
+
             if (self.ifSetup):
                 if (self.ifSetupSeismology):
-                    prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis']*self.weight_nonseis)/2.)
+                    chi2_nonseis = starsdata[istar]['chi2_nonseis']*self.weight_nonseis
                 else:
-                    prob_nonseis = np.exp(-(starsdata[istar]['chi2_nonseis'])/2.)
+                    chi2_nonseis = starsdata[istar]['chi2_nonseis']
+                prob_nonseis = np.exp(-(chi2_nonseis)/2.)
+                best_models_ranked_by.append('chi2_nonseis')
+                best_models_imod.append(np.nanargmax(prob_nonseis))
+                best_models_chi2s.append(chi2_nonseis)
+
             if (self.ifSetupSeismology):
                 if (self.ifSetupRegularization):
                     chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)*self.weight_seis + starsdata[istar]['chi2_reg']*self.weight_reg
                 else:
                     chi2_seis = np.sum([starsdata[istar]['chi2_seis_l{:0.0f}'.format(l)] for l in obs_l_uniq[istar]],axis=0)*self.weight_seis
                 prob_seis = np.exp(-(chi2_seis)/2.)
+                best_models_ranked_by.append('chi2_seis')
+                best_models_imod.append(np.nanargmax(prob_seis))
+                best_models_chi2s.append(chi2_seis)
+                
             if plot:
                 if samples.shape[0] <= samples.shape[1]:
                     f = open(toutdir+'log.txt', 'w')
@@ -826,6 +839,13 @@ class grid:
                     # output the prob (prior excluded)
                     results = quantile(samples, (0.16, 0.5, 0.84), weights=prob)
                     ascii.write(Table(results, names=estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
+
+                    # output the best models
+                    Nchi2 = len(best_models_chi2s)
+                    for ichi2 in range(Nchi2):
+                        best_models_chi2s[ichi2] = best_models_chi2s[ichi2][best_models_imod].reshape(Nchi2,1)
+                    results = np.concatenate([np.array(best_models_ranked_by).reshape(Nchi2,1), *best_models_chi2s, samples[best_models_imod,:], ], axis=1)
+                    ascii.write(Table(results, names=np.concatenate([['best_model_by'], best_models_ranked_by, estimates])), toutdir+"summary_best.txt",format="csv", overwrite=True)
 
             # endofif
 
