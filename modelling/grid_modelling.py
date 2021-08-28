@@ -307,6 +307,7 @@ class grid:
         chi2_seis = [np.array([np.inf]*Nmodel) for l in range(Nl)]
         chi2_reg = np.array([np.inf]*Nmodel)
         surface_parameters = np.array([np.nan]*Nmodel, dtype=object)
+        Dnu_freq = np.array([np.nan]*Nmodel)
 
         for imod in range(Nmodel):
             if Nmodel == 1:
@@ -318,6 +319,7 @@ class grid:
                 corr_mod_freq_imod = None
                 if (np.sum(np.isin(mod_l_imod, 0))) :
                     mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
+                    Dnu_freq[imod] = mod_Dnu
                     if -0.15 < ((mod_Dnu-Dnu)/Dnu) < 0.20:
                         if Nmodel == 1:
                             mod_inertia_imod, mod_acfreq_imod = mod_inertia, mod_acfreq
@@ -351,6 +353,7 @@ class grid:
             
             else:
                 mod_Dnu = get_model_Dnu(mod_freq_imod, mod_l_imod, Dnu, numax)
+                Dnu_freq[imod] = mod_Dnu
                 if -0.15 < ((mod_Dnu-Dnu)/Dnu) < 0.15:
                     for il, l in enumerate(obs_l_unique):
                         oidx, midx = obs_l==l, mod_l_imod==l
@@ -364,7 +367,7 @@ class grid:
                             obs_freq_imod_il, obs_efreq_imod_il, _, mod_freq_imod_il, _ = self.assign_n(obs_freq[oidx], obs_efreq[oidx], obs_l[oidx], mod_freq_imod[midx], mod_l_imod[midx])
                             chi2_seis[il][imod] = np.sum((obs_freq_imod_il-mod_freq_imod_il)**2.0/(obs_efreq_imod_il**2.0+mod_efreq_sys[il]**2.0))#/(Nobservable)
 
-        return chi2_seis, chi2_reg, surface_parameters
+        return chi2_seis, chi2_reg, surface_parameters, Dnu_freq
 
 
     def get_chi2(self, obs, e_obs, mod):
@@ -411,7 +414,7 @@ class grid:
             Nmodel = np.shape(mod)[0]
         
         chi2_nonseis = self.get_chi2(obs, e_obs, mod)
-        chi2_seis, chi2_reg, surface_parameters = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
+        chi2_seis, chi2_reg, surface_parameters, Dnu_freq = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, Dnu, numax,
                 mod_freq, mod_l, mod_inertia, mod_acfreq, 
                 ifCorrectSurface=ifCorrectSurface, mod_efreq_sys=mod_efreq_sys, mod_efreq_sys_reg=mod_efreq_sys_reg)
         
@@ -419,7 +422,7 @@ class grid:
             chi2 = chi2_nonseis * weight_nonseis + np.sum(chi2_seis, axis=0) * weight_seis + chi2_reg * weight_reg
         else:
             chi2 = chi2_nonseis * weight_nonseis + np.sum(chi2_seis, axis=0) * weight_seis
-        return chi2_nonseis, chi2_seis, chi2_reg, chi2, surface_parameters
+        return chi2_nonseis, chi2_seis, chi2_reg, chi2, surface_parameters, Dnu_freq
 
     def find_chi2_unweighted_seis(self, tracks):
         
@@ -447,7 +450,7 @@ class grid:
                 else: 
                     mod_inertia, mod_acfreq = None, None
 
-                chi2_unweighted_seis, chi2_unweighted_reg, _ = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
+                chi2_unweighted_seis, chi2_unweighted_reg, _, _ = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                     mod_freq, mod_l, mod_inertia, mod_acfreq, ifCorrectSurface=self.ifCorrectSurface)
 
                 for il, l in enumerate(self.obs_l_uniq[istar]):
@@ -507,7 +510,7 @@ class grid:
                     else: 
                         mod_inertia, mod_acfreq = None, None
 
-                    chi2_nonseis, chi2_seis, chi2_reg, chi2, surface_parameters = self.get_chi2_combined(obs, e_obs, mod, 
+                    chi2_nonseis, chi2_seis, chi2_reg, chi2, surface_parameters, Dnu_freq = self.get_chi2_combined(obs, e_obs, mod, 
                         obs_freq, obs_efreq, obs_l, self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
                         self.weight_nonseis, self.weight_seis, self.weight_reg,
@@ -525,7 +528,7 @@ class grid:
                     else: 
                         mod_inertia, mod_acfreq = None, None
 
-                    chi2_seis, chi2_reg, surface_parameters = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
+                    chi2_seis, chi2_reg, surface_parameters, Dnu_freq = self.get_chi2_seismology(Nmodel, obs_freq, obs_efreq, obs_l, 
                         self.Dnu[istar], self.numax[istar],
                         mod_freq, mod_l, mod_inertia, mod_acfreq, 
                         ifCorrectSurface=self.ifCorrectSurface, mod_efreq_sys=self.mod_efreq_sys[istar], mod_efreq_sys_reg=self.mod_efreq_sys_reg[istar])
@@ -563,6 +566,9 @@ class grid:
                 
                     if self.ifSetupRegularization:
                         starsdata[istar].append('chi2_reg', chi2_reg[fidx], dtype=float)
+                    
+                    starsdata[istar].append('Dnu_freq', Dnu_freq[fidx], dtype=float)
+
 
                 starsdata[istar].append('chi2', chi2[fidx], dtype=float)
                 starsdata[istar].append('lnprior', lnprior[fidx], dtype=float)
@@ -734,6 +740,9 @@ class grid:
                 samples.append(starsdata[istar][estimate])
             estimates = self.estimates
 
+            if self.ifSetupSeismology:
+                samples.append(starsdata[istar]['Dnu_freq'])
+                estimates = np.concatenate([estimates, ['Dnu_freq']])
             if self.ifCorrectSurface:
                 surface_parameters = np.array(list(starsdata[istar]['surface_parameters']), dtype=float)
                 for isurface in range(self.Nsurface):
