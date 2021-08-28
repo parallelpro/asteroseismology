@@ -16,8 +16,8 @@ from scipy.spatial import distance
 from scipy.special import logsumexp
 
 from asteroseismology.tools import return_2dmap_axes, quantile
-from asteroseismology.modelling.surface_correction import get_surface_correction
-from asteroseismology.modelling.model_Dnu import get_model_Dnu, get_obs_Dnu
+from asteroseismology.modelling.surface_correction import get_surface_correction, surface_params_dict
+from asteroseismology.modelling.model_Dnu import get_model_Dnu
 from asteroseismology.modelling.results_container import stardata
 
 __all__ = ['grid']
@@ -203,6 +203,8 @@ class grid:
         self.weight_reg = weight_reg
         self.ifCorrectSurface = ifCorrectSurface
         self.surface_correction_formula = surface_correction_formula
+        self.surface_estimates = surface_params_dict[surface_correction_formula]
+        self.Nsurface = len(self.surface_estimates)
         self.rescale_percentile = rescale_percentile
 
         if self.rescale_percentile<0.:
@@ -325,12 +327,13 @@ class grid:
                         corr_mod_freq_imod, surface_parameters_imod = get_surface_correction(obs_freq, obs_l, mod_freq_imod, mod_l_imod, 
                                                                             mod_inertia_imod, mod_acfreq_imod, 
                                                                             formula=self.surface_correction_formula,
-                                                                            ifFullOutput=True)
+                                                                            ifFullOutput=True, Dnu=Dnu, numax=numax)
 
 
                 if (corr_mod_freq_imod is None):
-                    for il, l in enumerate(obs_l_unique):
-                        chi2_seis[il][imod] = np.inf
+                    # for il, l in enumerate(obs_l_unique):
+                    #     chi2_seis[il][imod] = np.inf
+                    surface_parameters[imod] = np.zeros(self.Nsurface)+np.nan
                 else:
                     for il, l in enumerate(obs_l_unique):
                         oidx, midx = obs_l==l, mod_l_imod==l
@@ -729,6 +732,14 @@ class grid:
             samples = []
             for estimate in self.estimates:
                 samples.append(starsdata[istar][estimate])
+            estimates = self.estimates
+
+            if self.ifCorrectSurface:
+                surface_parameters = np.array(list(starsdata[istar]['surface_parameters']), dtype=float)
+                for isurface in range(self.Nsurface):
+                    samples.append(surface_parameters[:,isurface])
+                estimates = np.concatenate([estimates, self.surface_estimates])
+
             samples = np.transpose(np.array(samples))
             
 
@@ -752,17 +763,17 @@ class grid:
                 else:
                     # plot prob distributions
                     if (self.ifSetup):
-                        fig = self.plot_parameter_distributions(samples, self.estimates, prob_nonseis)
+                        fig = self.plot_parameter_distributions(samples, estimates, prob_nonseis)
                         fig.savefig(toutdir+"corner_prob_classic.png")
                         plt.close()
 
                     if (self.ifSetupSeismology):
-                        fig = self.plot_parameter_distributions(samples, self.estimates, prob_seis)
+                        fig = self.plot_parameter_distributions(samples, estimates, prob_seis)
                         fig.savefig(toutdir+"corner_prob_seismic.png")
                         plt.close()
 
                     # output the prob (prior included)
-                    fig = self.plot_parameter_distributions(samples, self.estimates, prob)
+                    fig = self.plot_parameter_distributions(samples, estimates, prob)
                     fig.savefig(toutdir+"corner_prob.png")
                     plt.close()
 
@@ -795,15 +806,15 @@ class grid:
                     # write prob distribution summary file
                     if (self.ifSetup):
                         results = quantile(samples, (0.16, 0.5, 0.84), weights=prob_nonseis)
-                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob_classic.txt",format="csv", overwrite=True)
+                        ascii.write(Table(results, names=estimates), toutdir+"summary_prob_classic.txt",format="csv", overwrite=True)
 
                     if (self.ifSetupSeismology):
                         results = quantile(samples, (0.16, 0.5, 0.84), weights=prob_seis)
-                        ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob_seismic.txt",format="csv", overwrite=True)
+                        ascii.write(Table(results, names=estimates), toutdir+"summary_prob_seismic.txt",format="csv", overwrite=True)
 
-                    # output the prob (prior included)
+                    # output the prob (prior excluded)
                     results = quantile(samples, (0.16, 0.5, 0.84), weights=prob)
-                    ascii.write(Table(results, names=self.estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
+                    ascii.write(Table(results, names=estimates), toutdir+"summary_prob.txt",format="csv", overwrite=True)
 
             # endofif
 
@@ -811,11 +822,16 @@ class grid:
             with h5py.File(toutdir+'data.h5', 'w') as h5f:
                 # classic parameters
                 for key in starsdata[istar].keys:
-                    if starsdata[istar][key].dtype == 'O':
-                        for iobj in range(len(starsdata[istar][key])):
-                            h5f.create_dataset(key+'/{:0.0f}'.format(iobj), data=np.array(starsdata[istar][key][iobj], dtype=float))
+                    if (key == 'surface_parameters'):
+                        for isurface in range(self.Nsurface):
+                            h5f.create_dataset(self.surface_estimates[isurface], 
+                                data=np.array([starsdata[istar]['surface_parameters'][imod][isurface] for imod in range(len(starsdata[istar]['surface_parameters']))], dtype=float))
                     else:
-                        h5f.create_dataset(key, data=np.array(starsdata[istar][key], dtype=float))
+                        if starsdata[istar][key].dtype == 'O':
+                            for iobj in range(len(starsdata[istar][key])):
+                                h5f.create_dataset(key+'/{:0.0f}'.format(iobj), data=np.array(starsdata[istar][key][iobj], dtype=float))
+                        else:
+                            h5f.create_dataset(key, data=np.array(starsdata[istar][key], dtype=float))
 
         return 
 
