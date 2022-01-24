@@ -2,9 +2,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-__all__ = ["ISO", "ISOCMD", "EEP", "EEPCMD"]
+__all__ = ["MIST_ISO", "MIST_ISOCMD", "MIST_EEP", "MIST_EEPCMD"]
 
-class ISO:
+class MIST_ISO:
     
     """
     
@@ -100,7 +100,7 @@ class ISO:
         
         return age_index
     		
-class ISOCMD:
+class MIST_ISOCMD:
     
     """
     
@@ -201,7 +201,7 @@ class ISOCMD:
         return age_index
 
         
-class EEP:
+class MIST_EEP:
     
     """
     
@@ -303,7 +303,7 @@ class EEP:
                     else:
                         ax.plot(x[p_ind], y[p_ind], color=phasecolor[i_p], linewidth=4.0, alpha=0.5)
 
-class EEPCMD:
+class MIST_EEPCMD:
     
     """
     
