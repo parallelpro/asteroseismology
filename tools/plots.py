@@ -114,6 +114,8 @@ def echelle(freq, ps, Dnu, fmin=None, fmax=None, echelletype="single", offset=0.
     ----
     z: a 2d numpy.array, folded power spectrum
     extent: a list, edges (left, right, bottom, top) 
+    x: a 1d numpy.array, horizontal axis
+    y: a 1d numpy.array, vertical axis
     
     Users can create an echelle diagram with the following command:
     ----
@@ -174,6 +176,8 @@ def period_echelle(period, ps, DPi, pmin=None, pmax=None, echelletype="single", 
     ----
     z: a 2d numpy.array, folded power spectrum
     extent: a list, edges (left, right, bottom, top) 
+    x: a 1d numpy.array, horizontal axis
+    y: a 1d numpy.array, vertical axis
     
     Users can create an echelle diagram with the following command:
     ----
