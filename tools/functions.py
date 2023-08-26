@@ -8,7 +8,7 @@ from astropy.timeseries import LombScargle
 
 
 __all__ = ["gaussian", "lorentzian", 
-        "spectralResponse", "standardBackgroundModel"]
+        "spectral_response", "standard_background_model"]
 
 def gaussian(x, mu, sigma, height):
     '''
@@ -40,13 +40,13 @@ def lorentzian(x, mu, gamma, height):
     return height / (1 + (x-mu)**2.0/gamma**2.0)
 
 
-def spectralResponse(x, fnyq):
+def spectral_response(x, fnyq):
 	sincfunctionarg = (np.pi/2.0)*x/fnyq
 	response = (np.sin(sincfunctionarg)/sincfunctionarg)**2.0
 	return response
 
 
-def standardBackgroundModel(x, params, fnyq, NHarvey=3, ifReturnOscillation=True):
+def standard_background_model(x, params, fnyq, NHarvey=3, if_return_oscillation=True):
     '''
     Return the value of gaussian given parameters.
 
@@ -58,7 +58,7 @@ def standardBackgroundModel(x, params, fnyq, NHarvey=3, ifReturnOscillation=True
             (ampHarvey3, freqHarvey3, powerHarvery3))
     fnyq: float, the nyquist frequency in unit of [x]
     NHarvey: int, the number of Harvey profiles
-    ifReturnOscillation: bool
+    if_return_oscillation: bool
 
     Output:
     y: array-like[N,]
@@ -73,10 +73,10 @@ def standardBackgroundModel(x, params, fnyq, NHarvey=3, ifReturnOscillation=True
         ampHarvey, freqHarvey, powerHarvey = params[iHarvey*3+4:iHarvey*3+7]
         power += zeta*ampHarvey**2.0/(freqHarvey*(1+(x/freqHarvey)**powerHarvey))
 
-    if ifReturnOscillation:
+    if if_return_oscillation:
         power += heightOsc * np.exp(-1.0*(numax-x)**2/(2.0*widthOsc**2.0))
 
-    power *= spectralResponse(x, fnyq)
+    power *= spectral_response(x, fnyq)
     power += flatNoiseLevel
     return power
 

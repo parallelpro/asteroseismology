@@ -3,17 +3,18 @@
 
 
 import numpy as np
+import pandas as pd
 from astropy.timeseries import LombScargle
 from .functions import gaussian
 
-__all__ = ["get_binned_median", "a_correlate", "c_correlate", 
-        "smoothWrapper", "powerSpectrumSmoothWrapper",
-        "medianSmooth", "medianFilter", "psd", "arg_closest_node",
-        "quantile"]
+__all__ = ["get_binned_median", "get_binned_mean", "auto_correlate", "cross_correlate", 
+        "smooth", "smooth_ps", "smooth_series",
+        "smooth_median", "median_filter", "fourier", "arg_closest_node",
+        "quantile", "statistics"]
 
 def get_binned_median(xdata, ydata, bins):
     '''
-    return median vals and the standand deviation of the mean for given data and a bin.
+    return median vals and the standand deviation of the median for given data and a bin.
 
     Input:
         xdata: array-like[N,]
@@ -26,7 +27,7 @@ def get_binned_median(xdata, ydata, bins):
         medians: array-like[Nbin,]
             median values of ydata in each bin
         stds: array-like[Nbin,]
-            stds of the mean of ydata in each bin
+            stds of the median of ydata in each bin
 
     '''
     
@@ -38,12 +39,42 @@ def get_binned_median(xdata, ydata, bins):
             medians[ibin], stds[ibin] = np.nan, np.nan
         else:
             medians[ibin] = np.median(ydata[idx])
-            stds[ibin] = np.std(ydata[idx])/np.sqrt(np.sum(idx))
+            stds[ibin] = 1.253*np.std(ydata[idx])/np.sqrt(np.sum(idx))
     xcs = (bins[1:]+bins[:-1])/2.
     return xcs, medians, stds
 
+def get_binned_mean(xdata, ydata, bins):
+    '''
+    return mean vals and the standand deviation of the mean for given data and a bin.
 
-def a_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
+    Input:
+        xdata: array-like[N,]
+        ydata: array-like[N,]
+        bins: array-like[Nbin,]
+
+    Output:
+        xcs: array-like[Nbin,]
+            center of each bin
+        means: array-like[Nbin,]
+            mean values of ydata in each bin
+        stds: array-like[Nbin,]
+            stds of the mean of ydata in each bin
+
+    '''
+    
+    Nbin = len(bins)-1
+    means, stds = [np.zeros(Nbin) for i in range(2)]
+    for ibin in range(Nbin):
+        idx = (xdata>bins[ibin]) & (xdata<=bins[ibin+1]) & (np.isfinite(xdata)) & (np.isfinite(ydata))
+        if np.sum(idx)==0:
+            means[ibin], stds[ibin] = np.nan, np.nan
+        else:
+            means[ibin] = np.mean(ydata[idx])
+            stds[ibin] = np.std(ydata[idx])/np.sqrt(np.sum(idx))
+    xcs = (bins[1:]+bins[:-1])/2.
+    return xcs, means, stds
+
+def auto_correlate(x, y, ifInterpolate=True, samplingInterval=None): 
 
     '''
     Generate autocorrelation coefficient as a function of lag.
@@ -80,7 +111,7 @@ def a_correlate(x, y, ifInterpolate=True, samplingInterval=None):
     return lag, rho
 
 
-def c_correlate(x, y1, y2, ifInterpolate=True, samplingInterval=None): 
+def cross_correlate(x, y1, y2, ifInterpolate=True, samplingInterval=None): 
     '''
     Generate autocorrelation coefficient as a function of lag.
 
@@ -119,7 +150,7 @@ def c_correlate(x, y1, y2, ifInterpolate=True, samplingInterval=None):
     return lag, rho
 
 
-def powerSpectrumSmoothWrapper(freq, power, windowSize=0.25, windowType='flat',
+def smooth_ps(freq, power, windowSize=0.25, windowType='flat',
                                 samplingInterval=None):
     '''
     Return the moving average of a power spectrum, with a changing width of the window
@@ -160,7 +191,7 @@ def powerSpectrumSmoothWrapper(freq, power, windowSize=0.25, windowType='flat',
     return powers
 
 
-def smoothWrapper(x, y, windowSize, windowType, samplingInterval=None):
+def smooth(x, y, windowSize, windowType, samplingInterval=None):
     '''
     Wrapping a sliding-average smooth function.
 
@@ -186,13 +217,13 @@ def smoothWrapper(x, y, windowSize, windowType, samplingInterval=None):
     window_len = int(windowSize/samplingInterval)
     if window_len % 2 == 0:
         window_len = window_len + 1
-    ys = smooth(yp, window_len, window = windowType)
+    ys = smooth_series(yp, window_len, window = windowType)
     yf = np.interp(x, xp, ys)
 
     return yf
 
 
-def smooth(x, window_len = 11, window = "hanning"):
+def smooth_series(x, window_len = 11, window = "hanning"):
     # stole from https://scipy.github.io/old-wiki/pages/Cookbook/SignalSmooth
     if x.ndim != 1:
         raise ValueError("smooth only accepts 1 dimension arrays.")
@@ -215,7 +246,7 @@ def smooth(x, window_len = 11, window = "hanning"):
     y = np.convolve(w/w.sum(),s,mode="same")
     return y
 
-def medianSmooth(x, y, period):
+def smooth_median(x, y, period):
     binsize = np.median(np.diff(x))
     kernelsize = int(period/binsize)
     if kernelsize%2==0: kernelsize+=1
@@ -223,9 +254,9 @@ def medianSmooth(x, y, period):
     yf = medfilt(y,kernel_size=kernelsize)
     return yf
 
-def medianFilter(x, y, period, yerr=None):
+def median_filter(x, y, period, yerr=None):
     if yerr==None: iferror=False
-    yf = medianSmooth(x, y, period)
+    yf = smooth_median(x, y, period)
     ynew = y/yf #y-yf
     if iferror: yerrnew = yerr/yf
 
@@ -235,7 +266,7 @@ def medianFilter(x, y, period, yerr=None):
         return ynew
 
 
-def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="power"):
+def fourier(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="power"):
     """
     Calculate the power spectrum density for a discrete time series.
     https://en.wikipedia.org/wiki/Spectral_density
@@ -274,13 +305,13 @@ def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val=
     >>> f = ts["flux_mf"]   # the relative flux fluctuated around 1
     >>> f = (f-1)*1e6   # units, from 1 to parts per million (ppm)
 
-    >>> freq, psd = se.psd(t, f, return_val="psd_new")
+    >>> freq, psd = fourier(t, f, return_val="psd_new")
     >>> freq = freq/(24*3600)*1e6   # c/d to muHz
     >>> psd = psd*(24*3600)*1e-6   # ppm^2/(c/d) to ppm^2/muHz
 
     """
 
-    if not (return_val in ["psd_old", "periodogram", "power", "amplitude", "psd_new", "window"]):
+    if not (return_val in ["psd_old", "periodogram", "power", "amplitude", "psd", "window"]):
         raise ValueError("return_val should be one of ['psd_old', 'periodogram', 'power', 'amplitude', 'psd_new', 'window'] ")
 
     Nx = len(x)
@@ -298,18 +329,28 @@ def psd(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val=
     if return_val == "psd_old":
         p = LombScargle(x, y).power(freq, normalization='psd')*dx*4.
     if return_val == "periodogram":
+        # text book def of periodogram
+        # don't think seismologists use this
         p = LombScargle(x, y).power(freq, normalization='psd')
     if return_val == "power":
+        # normalized according to kb95
+        # a sine wave with amplitude A will have peak height of A^2 in the power spectrum.
         p = LombScargle(x, y).power(freq, normalization='psd')/Nx*4.
     if return_val == "amplitude":
+        # normalized according to kb95
+        # a sine wave with amplitude A will have peak height of A in the amp spectrum.
         p = np.sqrt(LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)
-    if return_val == "psd_new":
+    if return_val == "psd": 
+        # normalized according to kb95
+        # a sine wave with amplitude A will have peak height of A^2*Tobs in the power density spectrum.
+        # should be equivalent to psd_old
         nu = 0.5*(freqMin+freqMax)
         freq_window = np.arange(freqMin, freqMax, dfreq/10)
         power_window = LombScargle(x, np.sin(2*np.pi*nu*x)).power(freq_window, normalization="psd")/Nx*4.
         Tobs = 1.0/np.sum(np.median(freq_window[1:]-freq_window[:-1])*power_window)
         p = (LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)*Tobs
     if return_val == "window":
+        # give spectral window
         nu = 0.5*(freqMin+freqMax)
         freq_window = np.arange(freqMin, freqMax, dfreq/10)
         power_window = LombScargle(x, np.sin(2*np.pi*nu*x)).power(freq_window, normalization="psd")/Nx*4.
@@ -334,7 +375,7 @@ def quantile(x, q, weights=None):
 
     ----------
     Input:
-    x: array-like[nsamples,]
+    x: array-like[nsamples, nfeatures]
         The samples.
     q: array-like[nquantiles,]
         The list of quantiles to compute. These should all be in the range
@@ -342,8 +383,8 @@ def quantile(x, q, weights=None):
 
     ----------
     Optional input:
-    weights : Optional[array-like[nsamples,]]
-        An optional weight corresponding to each sample.
+    weights : array-like[nsamples,]
+        Weight to each sample.
 
     ----------
     Output:
@@ -369,3 +410,54 @@ def quantile(x, q, weights=None):
             cdf = np.append(0, cdf)
             res.append(np.interp(q, cdf, x[idx[:,i],i]))
         return np.array(res).T
+
+def statistics(x, weights=None, colnames=None):
+    """
+    Compute important sample statistics with supported for weighted samples. 
+    The statistics include count, mean, std, min, (16%, 50%, 84%) quantiles, max,
+    median (50% quantile), err ((84%-16%)quantiles/2.), 
+    maxcprob (maximize the conditional distribution for each parameter), 
+    maxjprob (maximize the joint distribution),
+    and best (the sample with the largest weight, random if `weights` is None).
+    Both `maxcprob` and `maxjprob` utilises a guassian_kde estimator. 
+    
+    ----------
+    Input:
+    x: array-like[nsamples, nfeatures]
+        The samples.
+
+    ----------
+    Optional input:
+    weights : array-like[nsamples,]
+        Weight to each sample.
+
+    colnames: array-like[nfeatures,]
+        Column names for x (the second axis).
+
+    ----------
+    Output:
+    stats: pandas DataFrame object [5,]
+        statistics
+
+    """
+
+    x = np.atleast_1d(x)
+    if (weights is None): 
+        weight = np.ones(x.shape[0])
+    idx = np.isfinite(weights)
+    if np.sum(~idx)>0:
+        weight = weight[idx]
+        x = x[idx,]
+
+    nsamples, nfeatures = x.shape
+    scount = np.sum(np.isfinite(x), axis=0)
+    smean = np.nanmean(x, axis=0)
+    smin = np.nanmin(x, axis=0)
+    smax = np.nanmax(x, axis=0)
+    squantile = quantile(x, (16, 50, 84), weights=weights)
+
+
+    stats = pd.DataFrame([scount, smean, smin, smax, squantile, ], 
+        index=['count','mean','min','max','16%','50%','84%',])
+
+    return stats
