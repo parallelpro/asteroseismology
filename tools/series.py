@@ -266,7 +266,7 @@ def median_filter(x, y, period, yerr=None):
         return ynew
 
 
-def fourier(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="power"):
+def fourier(x, y, dy=None, oversampling=1, freqMin=None, freqMax=None, freq=None, return_val="power"):
     """
     Calculate the power spectrum density for a discrete time series.
     https://en.wikipedia.org/wiki/Spectral_density
@@ -281,6 +281,9 @@ def fourier(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_
 
 
     Optional input:
+    dy: float, or array-like[N,]
+        errors on y
+    
     oversampling: float, default: 1
         The oversampling factor to control the frequency grid.
         The larger the number, the denser the grid.
@@ -327,19 +330,19 @@ def fourier(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_
     if freq is None: freq = np.arange(freqMin, freqMax, dfreq/oversampling)
     
     if return_val == "psd_old":
-        p = LombScargle(x, y).power(freq, normalization='psd')*dx*4.
+        p = LombScargle(x, y, dy=dy).power(freq, normalization='psd')*dx*4.
     if return_val == "periodogram":
         # text book def of periodogram
         # don't think seismologists use this
-        p = LombScargle(x, y).power(freq, normalization='psd')
+        p = LombScargle(x, y, dy=dy).power(freq, normalization='psd')
     if return_val == "power":
         # normalized according to kb95
         # a sine wave with amplitude A will have peak height of A^2 in the power spectrum.
-        p = LombScargle(x, y).power(freq, normalization='psd')/Nx*4.
+        p = LombScargle(x, y, dy=dy).power(freq, normalization='psd')/Nx*4.
     if return_val == "amplitude":
         # normalized according to kb95
         # a sine wave with amplitude A will have peak height of A in the amp spectrum.
-        p = np.sqrt(LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)
+        p = np.sqrt(LombScargle(x, y, dy=dy).power(freq, normalization='psd')/Nx*4.)
     if return_val == "psd": 
         # normalized according to kb95
         # a sine wave with amplitude A will have peak height of A^2*Tobs in the power density spectrum.
@@ -348,7 +351,7 @@ def fourier(x, y, oversampling=1, freqMin=None, freqMax=None, freq=None, return_
         freq_window = np.arange(freqMin, freqMax, dfreq/10)
         power_window = LombScargle(x, np.sin(2*np.pi*nu*x)).power(freq_window, normalization="psd")/Nx*4.
         Tobs = 1.0/np.sum(np.median(freq_window[1:]-freq_window[:-1])*power_window)
-        p = (LombScargle(x, y).power(freq, normalization='psd')/Nx*4.)*Tobs
+        p = (LombScargle(x, y, dy=dy).power(freq, normalization='psd')/Nx*4.)*Tobs
     if return_val == "window":
         # give spectral window
         nu = 0.5*(freqMin+freqMax)
