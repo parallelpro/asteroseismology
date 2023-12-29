@@ -7,10 +7,40 @@ import pandas as pd
 from astropy.timeseries import LombScargle
 from .functions import gaussian
 
-__all__ = ["get_binned_median", "get_binned_mean", "auto_correlate", "cross_correlate", 
+__all__ = ["get_binned_percentile", "get_binned_median", "get_binned_mean", "auto_correlate", "cross_correlate", 
         "smooth", "smooth_ps", "smooth_series",
         "smooth_median", "median_filter", "fourier", "arg_closest_node",
         "quantile", "statistics"]
+
+def get_binned_percentile(xdata, ydata, bins, percentile):
+    '''
+    return median vals and the standand deviation of the median for given data and a bin.
+
+    Input:
+        xdata: array-like[N,]
+        ydata: array-like[N,]
+        bins: array-like[Nbin,]
+
+    Output:
+        xcs: array-like[Nbin,]
+            center of each bin
+        medians: array-like[Nbin,]
+            median values of ydata in each bin
+        stds: array-like[Nbin,]
+            stds of the median of ydata in each bin
+
+    '''
+    
+    Nbin = len(bins)-1
+    percentiles = np.zeros(Nbin) 
+    for ibin in range(Nbin):
+        idx = (xdata>bins[ibin]) & (xdata<=bins[ibin+1]) & (np.isfinite(xdata)) & (np.isfinite(ydata))
+        if np.sum(idx)==0:
+            percentiles[ibin] = np.nan
+        else:
+            percentiles[ibin] = np.percentile(ydata[idx], percentile)
+    xcs = (bins[1:]+bins[:-1])/2.
+    return xcs, percentiles
 
 def get_binned_median(xdata, ydata, bins):
     '''
