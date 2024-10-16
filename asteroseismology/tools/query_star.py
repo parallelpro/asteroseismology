@@ -1,41 +1,103 @@
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 import numpy as np
+import astropy.coordinates as coord
+import astropy.units as u
 
-__all__ = ['get_plx', 'get_magnitudes']
+__all__ = ['get_plx', 'get_spec', 'get_magnitudes']
+
+def starname2cd(starname):
+    table = Simbad.query_objectids(starname)
+    if table is not None:
+        gaia_source = [ t for t in table['ID'] if t.startswith('Gaia DR3')]
+        if len(gaia_source) == 1: 
+            gaia_dr3_source = gaia_source[0][9:]
+            gaia_result_table = Vizier(columns=["*"], catalog="I/355/gaiadr3").query_constraints(Source=gaia_dr3_source)
+            if len(gaia_result_table)>=1:
+                raj2000, dej2000 = gaia_result_table[0][0]['RAJ2000'], gaia_result_table[0][0]['DEJ2000']
+                return coord.SkyCoord(ra=raj2000, dec=dej2000, unit=(u.deg, u.deg),frame='icrs')
+            else:
+                return None
+        else:
+            return None
+    else:
+        return None
+
+def starname2dr3(starname):
+    table = Simbad.query_objectids(starname)
+    if table is not None:
+        gaia_source = [ t for t in table['ID'] if t.startswith('Gaia DR3')]
+        if len(gaia_source) == 1: 
+            gaia_dr3_source = gaia_source[0][9:]
+            return gaia_dr3_source
+        else:
+            return None
+    else:
+        return None
+
+def starname2tic(starname):
+    table = Simbad.query_objectids(starname)
+    if table is not None:
+        tic_source = [ t for t in table['ID'] if t.startswith('TIC')]
+        if len(tic_source) == 1: 
+            tic_source = tic_source[0][4:]
+            return tic_source
+        else:
+            return None
+    else:
+        return None
 
 def get_plx(starname):
-
-    # # get RA and DEC for that source
-    # result_table = Simbad.query_object(starname)
-
-    # if len(result_table)>=1:
-    #     ras, decs = result_table[0]['RA'] ,result_table[0]['DEC'] 
-    #     l = [float(s) for s in ras.split()]
-    #     ra = (l[0]+l[1]/60+l[2]/3600)/24*360
-    #     l = [float(s) for s in decs.split()]
-    #     dec = (l[0]+l[1]/60+l[2]/3600)
-
-    # add a condition to drop if ra, dec is None
-
+    dr3 = starname2dr3(starname)
     # # get plx from Gaia
-    v = Vizier(columns=["*"], catalog="I/355/gaiadr3")
-    gaia_result_table = v.query_region(starname, radius="2s")
+    v = Vizier(columns=["Plx", "e_Plx"], catalog="I/355/gaiadr3")
+    gaia_result_table = v.query_constraints(Source=dr3) #.query_region(starname, radius="2s")
     if len(gaia_result_table)>=1:
         plx = gaia_result_table[0]['Plx'][0]
         e_plx = gaia_result_table[0]['e_Plx'][0]
     else:
         plx, e_plx = np.nan, np.nan
-
-    return plx, e_plx
+    return {'plx': plx, 'e_plx': e_plx}
         
+
+def get_spec(starname, catalog='TIC'):
+    if catalog == 'TIC':
+        tic = starname2tic(starname)
+        # # get teff, logg, feh from Gaia
+        v = Vizier(columns=['Teff', 'logg', '[M/H]', 'Lum'], catalog="IV/38/tic")
+        tic_result_table = v.query_constraints(TIC=tic) #.query_region(starname, radius="2s")
+        if len(tic_result_table)>=1:
+            teff = tic_result_table[0]['Teff'][0]
+            logg = tic_result_table[0]['logg'][0]
+            feh = tic_result_table[0]['__M_H_'][0]
+            lum = tic_result_table[0]['Lum'][0]
+        else:
+            teff, logg, feh, lum = np.nan, np.nan, np.nan, np.nan
+        return {'teff':teff, 'logg':logg, 'feh':feh, 'lum':lum}
+    elif catalog == 'Gaia':
+        dr3 = starname2dr3(starname)
+        # # get teff, logg, feh from Gaia
+        v = Vizier(columns=['Teff',	'logg', '[Fe/H]'], catalog="I/355/gaiadr3")
+        gaia_result_table = v.query_constraints(Source=dr3) #.query_region(starname, radius="2s")
+        if len(gaia_result_table)>=1:
+            teff = gaia_result_table[0]['Teff'][0]
+            logg = gaia_result_table[0]['logg'][0]
+            feh = gaia_result_table[0]['__Fe_H_'][0]
+        else:
+            teff, logg, feh = np.nan, np.nan, np.nan
+        return {'teff':teff, 'logg':logg, 'feh':feh}
+    else:
+        return {'teff':np.nan, 'logg':np.nan, 'feh':np.nan}
+
+
 
 all_bands = ['Gmag', 'BPmag', 'RPmag', 'Jmag', 'Hmag', 'Kmag', 'W1mag', 'W2mag', 'W3mag', 'W4mag',
          'Vmag', 'Bmag', 'g_mag', 'r_mag', 'i_mag', 'FUVmag', 'NUVmag', "uPSF", "e_uPSF", "vPSF", "e_vPSF",
          "BTmag", "e_BTmag", "VTmag", "e_VTmag"]
 
 def get_magnitudes(starname, bands=all_bands):
-
+    dr3 = starname2dr3(starname)
+    cd = starname2cd(starname)
     # get magnitudes from photometric surveys
 
     stardata = {}
@@ -50,10 +112,10 @@ def get_magnitudes(starname, bands=all_bands):
     # j = Gaia.cone_search_async(coord, radius)
     # gaia_result_table = j.get_results()
     
-    if np.isin(['Gmag', 'BPmag', 'RPmag'], bands).sum() > 0:
+    if np.isin(['Gmag', 'BPmag', 'RPmag'], bands).sum() > 0 and (dr3 is not None):
         ## Gaia
         v = Vizier(columns=["*"], catalog="I/355/gaiadr3")
-        gaia_result_table = v.query_region(starname, radius="2s")
+        gaia_result_table = v.query_constraints(Source=dr3) #.query_region(starname, radius="2s")
         if len(gaia_result_table)>=1:
             stardata['Gmag'] = gaia_result_table[0]['Gmag'][0]
             stardata['BPmag'] = gaia_result_table[0]['BPmag'][0]
@@ -67,10 +129,10 @@ def get_magnitudes(starname, bands=all_bands):
             stardata['e_Gmag'], stardata['e_BPmag'], stardata['e_RPmag'] = [np.nan for i in range(3)]
 
 
-    if np.isin(['Jmag', 'Hmag', 'Kmag'], bands).sum() > 0:
+    if np.isin(['Jmag', 'Hmag', 'Kmag'], bands).sum() > 0 and (cd is not None):
         ## 2MASS
         v = Vizier(columns=["*"], catalog="II/246/out")
-        tmass_result_table = v.query_region(starname, radius="2s")
+        tmass_result_table = v.query_region(cd, radius="2s")
         cols = ['Jmag', 'Hmag', 'Kmag']
         if len(tmass_result_table)>=1:
             for col in cols:
@@ -81,10 +143,10 @@ def get_magnitudes(starname, bands=all_bands):
                 stardata[col] = np.nan
                 stardata['e_'+col] = np.nan
 
-    if np.isin(['W1mag', 'W2mag', 'W3mag', 'W4mag'], bands).sum() > 0:
+    if np.isin(['W1mag', 'W2mag', 'W3mag', 'W4mag'], bands).sum() > 0 and (cd is not None):
         ## WISE
         v = Vizier(columns=["*"], catalog="II/328/allwise")
-        allwise_result_table = v.query_region(starname, radius="2s")
+        allwise_result_table = v.query_region(cd, radius="2s")
         cols = ['W1mag', 'W2mag', 'W3mag', 'W4mag']
         if len(allwise_result_table)>=1:
             for col in cols:
@@ -95,10 +157,10 @@ def get_magnitudes(starname, bands=all_bands):
                 stardata[col] = np.nan
                 stardata['e_'+col] = np.nan
 
-    if np.isin(['Vmag', 'Bmag', 'g_mag', 'r_mag', 'i_mag'], bands).sum() > 0:
+    if np.isin(['Vmag', 'Bmag', 'g_mag', 'r_mag', 'i_mag'], bands).sum() > 0 and (cd is not None):
         ## APASS
         v = Vizier(columns=["*"], catalog="II/336")
-        APASS_result_table = v.query_region(starname, radius="2s")
+        APASS_result_table = v.query_region(cd, radius="2s")
         cols = ['Vmag', 'Bmag', 'g_mag', 'r_mag', 'i_mag']
         if len(APASS_result_table)>=1:
             for col in cols:
@@ -109,10 +171,10 @@ def get_magnitudes(starname, bands=all_bands):
                 stardata[col] = np.nan
                 stardata['e_'+col] = np.nan
 
-    if np.isin(['FUVmag', 'NUVmag'], bands).sum() > 0:
+    if np.isin(['FUVmag', 'NUVmag'], bands).sum() > 0 and (cd is not None):
         ## GALEX
         v = Vizier(columns=["*"], catalog="II/335/galex_ais")
-        GALEX_result_table = v.query_region(starname, radius="2s")
+        GALEX_result_table = v.query_region(cd, radius="2s")
         cols = ['FUVmag', 'NUVmag']
         if len(GALEX_result_table)>=1:
             for col in cols:
@@ -123,10 +185,10 @@ def get_magnitudes(starname, bands=all_bands):
                 stardata[col] = np.nan
                 stardata['e_'+col] = np.nan
     
-    if np.isin(["uPSF", "e_uPSF", "vPSF", "e_vPSF"], bands).sum() > 0:
+    if np.isin(["uPSF", "e_uPSF", "vPSF", "e_vPSF"], bands).sum() > 0 and (cd is not None):
         # skymapper
         v = Vizier(columns=["uPSF", "e_uPSF", "vPSF", "e_vPSF"], catalog="II/358/smss")
-        skymapper_result_table = v.query_region(starname, radius="2s")
+        skymapper_result_table = v.query_region(cd, radius="2s")
         if len(skymapper_result_table)>=1:
             for col in cols:
                 stardata['umag'] = skymapper_result_table[0]['uPSF'][0]
@@ -140,10 +202,10 @@ def get_magnitudes(starname, bands=all_bands):
                 stardata['vmag'] = np.nan
                 stardata['e_vmag'] = np.nan
     
-    if np.isin(["BTmag", "e_BTmag", "VTmag", "e_VTmag"], bands).sum() > 0:
+    if np.isin(["BTmag", "e_BTmag", "VTmag", "e_VTmag"], bands).sum() > 0 and (cd is not None):
         # tycho
         v = Vizier(columns=["BTmag", "e_BTmag", "VTmag", "e_VTmag"], catalog="I/259/tyc2")
-        Tycho_result_table = v.query_region(starname, radius="2s")
+        Tycho_result_table = v.query_region(cd, radius="2s")
         if len(Tycho_result_table)>=1:
             for col in cols:
                 stardata['Bmag'] = Tycho_result_table[0]['BTmag'][0]

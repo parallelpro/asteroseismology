@@ -4,12 +4,13 @@
 
 import numpy as np
 import pandas as pd
+import scipy
 from astropy.timeseries import LombScargle
 from .functions import gaussian
 
 __all__ = ["get_binned_percentile", "get_binned_median", "get_binned_mean", "auto_correlate", "cross_correlate", 
         "smooth", "smooth_ps", "smooth_series",
-        "smooth_median", "median_filter", "fourier", "arg_closest_node",
+        "smooth_median", "smooth_dispersion", "median_filter", "fourier", "arg_closest_node",
         "quantile", "statistics"]
 
 def get_binned_percentile(xdata, ydata, bins, percentile):
@@ -215,7 +216,7 @@ def smooth_ps(freq, power, windowSize=0.25, windowType='flat',
             powersp[idx] = powerp[idx]
         else:
             inputArray = np.concatenate((np.ones(window_len)*powerp[idx][window_len:0:-1], powerp[idx], np.ones(window_len)*powerp[idx][-1:-window_len-1:-1]))
-            powersp[idx] = smooth(inputArray, window_len, window=windowType)[window_len:window_len+np.sum(idx)]
+            powersp[idx] = smooth_series(inputArray, window_len, window=windowType)[window_len:window_len+np.sum(idx)]
 
     powers = np.interp(freq, freqp, powersp)
     return powers
@@ -278,10 +279,12 @@ def smooth_series(x, window_len = 11, window = "hanning"):
 
 def smooth_median(x, y, period):
     binsize = np.median(np.diff(x))
-    kernelsize = int(period/binsize)
-    if kernelsize%2==0: kernelsize+=1
-    from scipy.signal import medfilt
-    yf = medfilt(y,kernel_size=kernelsize)
+    yf = scipy.ndimage.median_filter(y, int(np.ceil(period/binsize)))
+    return yf
+
+def smooth_dispersion(x, y, period):
+    binsize = np.median(np.diff(x))
+    yf = scipy.ndimage.generic_filter(y, np.std, int(np.ceil(period/binsize)))
     return yf
 
 def median_filter(x, y, period, yerr=None):

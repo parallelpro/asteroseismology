@@ -127,7 +127,7 @@ def echelle(freq, ps, Dnu, fmin=None, fmax=None, echelletype="single", offset=0.
     '''
     
     if fmin is None: fmin=0.
-    if fmax is None: fmax=np.nanmax(x)
+    if fmax is None: fmax=np.nanmax(freq)
 
     fmin -= offset
     fmax -= offset
